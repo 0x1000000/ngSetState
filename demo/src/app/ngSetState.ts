@@ -225,7 +225,7 @@ function cloneStateObject<TState>(previousState: TState, diff: Partial <TState>,
         const newInstance = Object.create(stateMeta.stateConstructor.prototype);
         Object.assign(newInstance, previousState, diff);
         // Call constructor
-        stateMeta.stateConstructor.apply(newInstance);
+        //stateMeta.stateConstructor.apply(newInstance);
 
         return newInstance;
     }
