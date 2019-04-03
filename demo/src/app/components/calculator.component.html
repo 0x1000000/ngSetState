@@ -1,0 +1,5 @@
+<h1>Calculator</h1>
+
+<input type="text" [value]="state.arg1Text" (input)="modifyState('arg1Text', $event.data)">
+<br />
+<input type="text" [value]="state.arg2Text" (input)="modifyState('arg2Text', $event.data)">
