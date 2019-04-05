@@ -1,4 +1,4 @@
-import { OnChanges, SimpleChanges, EventEmitter, Input, Output } from "@angular/core";
+import { OnChanges, SimpleChanges, EventEmitter, Type, Output } from "@angular/core";
 
 export interface IWithState<TState> extends OnChanges {
 
@@ -9,15 +9,15 @@ export interface IWithState<TState> extends OnChanges {
     onAfterStateApplied?(): void;
 }
 
-export function WithState<TState>(initialState: TState): (t: Constructor<any>) => any {
+export function WithState<TState>(stateType: Constructor<TState>, factory?: () => TState): (t: Constructor<any>) => any {
 
-    if (initialState == null) {
-        throw new Error("Initial state should be initialized");
+    if (stateType == null) {
+        throw new Error("Initial state type should be defined or a factory provided");
     }
 
-    const stateMeta = ensureStateMeta<TState>(initialState);
+    const stateMeta = ensureStateMeta<TState>(stateType);
 
-    stateMeta.stateConstructor =  initialState.constructor as Constructor<TState>;
+    stateMeta.stateConstructor = stateType;
 
     return (target: NgComponentType) => {
 
@@ -40,12 +40,26 @@ export function WithState<TState>(initialState: TState): (t: Constructor<any>) =
 
             public state: TState = (() => {
 
+                let initialState: TState;
+
+                if (factory != null) {
+                    initialState = factory();
+                } else {
+                    initialState = new stateType();
+                }                
+
+                //Create emitters
                 for (const outputProp of stateMeta.outputs) {
 
                     const emitterProp = outputProp + EMITTER_SUFFIX;
                     if (this[emitterProp] == null) {
                         this[emitterProp] = new EventEmitter<any>();
                     }
+                }
+
+                //Set initial values
+                for (const inputProp of stateMeta.inputs) {
+                    this[inputProp.componentProp] = initialState[inputProp.stateProp];
                 }
 
                 return initialState;
@@ -86,30 +100,13 @@ export function WithState<TState>(initialState: TState): (t: Constructor<any>) =
             }
 
             private nextState(diff: Partial<TState>): void {
-                let previousState = this.state;
-                let newState = cloneStateObject(previousState, diff, stateMeta);
+                const previousState = this.state;
 
-                const diffKeys = Object.keys(diff);
-
-                for (const modifier of stateMeta.modifiers) {
-
-                    if (diffKeys.some(dk => modifier.prop === dk)) {
-                        for (const fun of modifier.fun) {
-                            diff = fun.apply(newState, [newState, previousState, diff]);
-                            if (diff) {
-                                previousState = newState;
-                                newState = cloneStateObject(previousState, diff, stateMeta);
-                            }
-                        }
-                    }
-                }
-
-                previousState = this.state;
-                this.state = newState;
+                this.state = this.updateCycle(previousState, diff);
 
                 for (const output of stateMeta.outputs) {
-                    if (previousState[output] !== newState[output]) {
-                        this.emit(output, newState[output]);
+                    if (previousState[output] !== this.state[output]) {
+                        this.emit(output, this.state[output]);
                     }
                 }
 
@@ -118,6 +115,54 @@ export function WithState<TState>(initialState: TState): (t: Constructor<any>) =
                 if (asInterface.onAfterStateApplied) {
                     asInterface.onAfterStateApplied();
                 }
+            }
+
+            private updateCycle(previousState: TState, diff: Partial<TState>): TState {
+
+                let watchDog = 1000;
+
+                while (watchDog > 0) {
+                    if (diff == null) {
+                        return previousState;
+                    }
+
+                    const diffKeys = Object.keys(diff);
+
+                    let newState = cloneStateObject(previousState, diff, stateMeta);
+
+                    let cumulativeModDiff: Partial<TState> | null = null;
+
+                    for (const modifier of stateMeta.modifiers) {
+
+                        if (diffKeys.some(dk => modifier.prop === dk)) {
+                            for (const fun of modifier.fun) {
+                                const localDiff = fun.apply(newState, [newState, previousState, diff]);
+                                if (localDiff != null) {
+
+                                    const localDiffKeys = Object.keys(localDiff);
+                                    if (!localDiffKeys.every(diffKey => previousState[diffKey] === localDiff[diffKey])) {
+                                        if (!cumulativeModDiff) {
+                                            cumulativeModDiff = {};
+                                        }
+
+                                        Object.assign(cumulativeModDiff, localDiff);
+
+                                        previousState = newState;
+                                        newState = cloneStateObject(previousState, diff, stateMeta);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (cumulativeModDiff == null) {
+                        return newState;
+                    }
+
+                    previousState = newState;
+                    diff = cumulativeModDiff;
+                    watchDog--;
+                }
+                throw new Error("Recursion overflow");
             }
 
             private emit(prop: keyof TState, value: any): void {
@@ -224,9 +269,6 @@ function cloneStateObject<TState>(previousState: TState, diff: Partial <TState>,
     if (stateMeta.stateConstructor) {
         const newInstance = Object.create(stateMeta.stateConstructor.prototype);
         Object.assign(newInstance, previousState, diff);
-        // Call constructor
-        //stateMeta.stateConstructor.apply(newInstance);
-
         return newInstance;
     }
     return Object.assign({}, previousState, diff);

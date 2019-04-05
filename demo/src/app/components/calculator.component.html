@@ -1,5 +1,23 @@
-<h1>Calculator</h1>
+<div class="field">
+    <label for="arg1Input">Argument 1:</label>
+    <input type="text" id="arg1Input" [value]="state.arg1Text" (input)="modifyState('arg1Text', $event.target.value)" [class.error]="state.arg1Error">
+</div>
 
-<input type="text" [value]="state.arg1Text" (input)="modifyState('arg1Text', $event.data)">
-<br />
-<input type="text" [value]="state.arg2Text" (input)="modifyState('arg2Text', $event.data)">
+<div class="field">
+    <radio-list [items]="state.operations" valueProperty="id" titleProperty="title" [selected]="state.operation" (selecetedChange)="modifyState('operation', $event)"></radio-list>
+
+</div>
+<div class="field">
+    <label for="arg2Input">Argument 2:</label>
+    <input type="text" id="arg2Input" [value]="state.arg2Text" (input)="modifyState('arg2Text', $event.target.value)" [class.error]="state.arg2Error">
+</div>
+
+<div class="field">
+    <span>= {{state.result != null ? state.result.toString() : "N/A"}}</span>
+</div>
+
+<style>
+    .field {
+        display: inline-block
+    }
+</style>

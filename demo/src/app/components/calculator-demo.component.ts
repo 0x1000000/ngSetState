@@ -7,4 +7,7 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
 })
 export class CalculatorDemoComponent {
 
+    public arg1: number | null = 0;
+
+    public arg2: number | null = 0;
 }

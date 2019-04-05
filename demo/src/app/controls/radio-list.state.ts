@@ -1,15 +1,13 @@
 import { In, With, Out } from "../ngSetState";
 
-export class State {
+export class RadioListState {
 
     public static readonly ngInputs = ["items", "selected", "titleProperty", "valueProperty"];
 
     public static readonly ngOutputs = ["selectedChange","selectedItemChange"];
 
-    constructor(initialItems?: Partial<State>) {
-        if (initialItems) {
-            Object.assign(this, initialItems);
-        }
+    constructor() {
+        this.radioName = "RL-" + Math.random().toString(36).substring(2, 15);
     }
 
     @In()
@@ -33,7 +31,7 @@ export class State {
     public readonly viewItems: ItemView[];
 
     @With("items", "titleProperty", "valueProperty", "radioName")
-    public static withItems(state: State): Partial<State> | null {
+    public static withItems(state: RadioListState): Partial<RadioListState> | null {
 
         if (!state.items || !state.radioName) {
             return null;
@@ -41,20 +39,20 @@ export class State {
 
         const newViewItems = state.items.map((i,index) => <ItemView>({
             id: state.radioName + index.toString(),
-            value: State.getProperty(i, state.valueProperty),
-            title: State.getProperty(i, state.titleProperty),
-            checked: state.shouldBeChecked(State.getProperty(i, state.valueProperty)),
+            value: RadioListState.getProperty(i, state.valueProperty),
+            title: RadioListState.getProperty(i, state.titleProperty),
+            checked: state.shouldBeChecked(RadioListState.getProperty(i, state.valueProperty)),
             target: i,
         }));
 
         return {
             viewItems: newViewItems,
-            selectedItem: State.getSelectedItem(newViewItems)
+            selectedItem: RadioListState.getSelectedItem(newViewItems)
         };
     }
 
     @With("selected")
-    public static withSelected(state: State): Partial<State> | null {
+    public static withSelected(state: RadioListState): Partial<RadioListState> | null {
 
         const requireUpdate = (vi: ItemView) => vi.checked && !state.shouldBeChecked(vi.value) || !vi.checked && state.shouldBeChecked(vi.value);
 
@@ -67,7 +65,7 @@ export class State {
                     }));
             return {
                 viewItems: newViewItems,
-                selectedItem: State.getSelectedItem(newViewItems)
+                selectedItem: RadioListState.getSelectedItem(newViewItems)
             }
         }
         return null;

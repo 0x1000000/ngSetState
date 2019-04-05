@@ -1,4 +1,4 @@
-<div *ngFor="let i of state.viewItems">
+<div *ngFor="let i of state.viewItems" class="radio-item">
     <input
         type="radio"
         [attr.id]="i.id"
@@ -8,3 +8,12 @@
         (change)="onRadioChange(i)">
     <label [attr.for]="i.id">{{i.title}}</label>
 </div>
+<style>
+    .radio-item {
+        white-space: nowrap;
+    }
+
+    .radio-item input {
+        display: initial;
+    }
+</style>

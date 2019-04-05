@@ -1,26 +1,22 @@
-import { Component, ElementRef, SimpleChanges, EventEmitter, forwardRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
 import { WithState, IWithState } from "../ngSetState";
-import { State, ItemView } from "./radio-list.state";
+import { RadioListState, ItemView } from "./radio-list.state";
 
-@WithState(new State({ radioName: "radioSelector" }))
+@WithState(RadioListState)
 @Component({
     selector: 'radio-list',
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: "./radio-list.component.html",
-    inputs: State.ngInputs,
-    outputs: State.ngOutputs
+    inputs: RadioListState.ngInputs,
+    outputs: RadioListState.ngOutputs
 })
-export class RadioListComponent implements IWithState<State>{
+export class RadioListComponent implements IWithState<RadioListState>{
 
-    constructor(elR: ElementRef) {
-
-    }
-
-    public state: State;
+    public state: RadioListState;
 
     public ngOnChanges(changes: SimpleChanges): void {}
 
-    public modifyState<TK extends keyof State>(propName: TK, value: State[TK]): void {}
+    public modifyState<TK extends keyof RadioListState>(propName: TK, value: RadioListState[TK]): void {}
 
     public onRadioChange(item: ItemView): void {
         this.modifyState("selected", item.value);

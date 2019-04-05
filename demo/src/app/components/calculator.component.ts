@@ -2,7 +2,7 @@ import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core
 import { WithState, IWithState } from "../ngSetState";
 import { CalculatorState } from "./calculator.state";
 
-@WithState(new CalculatorState())
+@WithState(CalculatorState)
 @Component({
     selector: 'calculator',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -17,8 +17,4 @@ export class CalculatorComponent implements IWithState<CalculatorState> {
     public ngOnChanges(changes: SimpleChanges): void {  }
 
     public state: CalculatorState;
-
-    //public onArg1TextChange(text: ) {
-    //    this.modifyState("arg1Text", text);
-    //}
 }
