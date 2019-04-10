@@ -1,15 +1,14 @@
 import { In, Out, With } from "../ngSetState";
 
-
 export type Operation = "add" | "sub";
 
 export class CalculatorState {
 
     private static readonly regExNum = new RegExp('^\\d{1,9}$');
 
-    public static readonly ngInputs: string[] = ["arg1", "arg2"];
+    public static readonly ngInputs: string[] = ["arg1", "arg2", "operation"];
 
-    public static readonly ngOutputs: string[] = ["arg1Change", "arg2Change"];
+    public static readonly ngOutputs: string[] = ["arg1Change", "arg2Change", "operationChange"];
 
     @In("arg1")
     public readonly arg1Ext: number | null = 0;
@@ -25,6 +24,8 @@ export class CalculatorState {
 
     public readonly arg2Error: boolean = false;
 
+    @In()
+    @Out()
     public readonly operation: Operation = "add";
 
     @Out()
@@ -71,12 +72,22 @@ export class CalculatorState {
         }
     }
 
-    @With("arg1", "arg2")
+    @With("arg1", "arg2", "operation")
     public static calcSumWithArh1(currentState: CalculatorState): Partial<CalculatorState> | null {
         if (currentState.arg1 != null && currentState.arg2 != null) {
 
-            const result = currentState.arg1 + currentState.arg2;
+            let result: number;
 
+            switch (currentState.operation) {
+                case "add":
+                    result = currentState.arg1 + currentState.arg2;
+                    break;
+                case "sub":
+                    result = currentState.arg1 - currentState.arg2;
+                    break;
+                default:
+                    throw new Error("Unknown operation: " + currentState.operation);
+            }
             return { result: result };
         } else {
             return { result: null };

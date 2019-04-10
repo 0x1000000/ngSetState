@@ -1,8 +1,8 @@
-import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
-import { WithState, IWithState } from "../ngSetState";
+import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { WithStateBase } from "../ngSetState";
 import { CalculatorState } from "./calculator.state";
 
-@WithState(CalculatorState)
+
 @Component({
     selector: 'calculator',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -10,11 +10,9 @@ import { CalculatorState } from "./calculator.state";
     inputs: CalculatorState.ngInputs,
     outputs: CalculatorState.ngOutputs
 })
-export class CalculatorComponent implements IWithState<CalculatorState> {
+export class CalculatorComponent extends WithStateBase<CalculatorState> {
 
-    public modifyState<TK extends keyof CalculatorState>(propName: TK, value: CalculatorState[TK]): void { }
-
-    public ngOnChanges(changes: SimpleChanges): void {  }
-
-    public state: CalculatorState;
+    constructor() {
+        super(new CalculatorState());
+    }
 }
