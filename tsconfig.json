@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+	"baseUrl": "./src",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": true,
+    "declaration": true,
+    "module": "ES2015",
+    "moduleResolution": "node",
+    "importHelpers": true,
+    "target": "es5",
+    "strictNullChecks": true,
+    "lib": [
+      "es2018",
+      "dom"
+    ],
+    "types": [
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "demo",
+    "dist",
+    "compiled"
+  ],
+  "compileOnSave": false,
+  "buildOnSave": false
+}
