@@ -10,10 +10,10 @@ export interface IWithState<TState> extends OnChanges {
 
 export abstract class WithStateBase<TState> implements IWithState<TState> {
 
-    constructor(initialState: TState) {
+    constructor(initialState: TState, ngInputs: string[], ngOutputs: string[]) {
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta<TState>(initialState);
         stateMeta.stateConstructor = <Constructor<TState>>initialState.constructor;
-        Functions.initialize(this, initialState);
+        Functions.initialize(this, initialState, ngInputs, ngOutputs);
 
         this.state = initialState;
     }
@@ -28,7 +28,7 @@ export abstract class WithStateBase<TState> implements IWithState<TState> {
     }    
 }
 
-export function WithState<TState>(stateType: Constructor<TState>, factory?: () => TState): (t: Constructor<any>) => any {
+export function WithState<TState>(stateType: Constructor<TState>, ngInputs: string[], ngOutputs: string[], factory?: () => TState): (t: Constructor<any>) => any {
 
     if (stateType == null) {
         throw new Error("Initial state type should be defined or a factory provided");
@@ -44,7 +44,7 @@ export function WithState<TState>(stateType: Constructor<TState>, factory?: () =
 
                 const initialState = factory != null ? factory() : new stateType();
 
-                Functions.initialize(this, initialState);
+                Functions.initialize(this, initialState, ngInputs, ngOutputs);
 
                 return initialState;
             })();
@@ -77,15 +77,23 @@ export function In<TState>(componentProp?: string): any {
     };
 }
 
-export function Out<TState>(): any {
+export function Out<TState>(componentProp?: string): any {
     return (target: TState, propertyKey: keyof TState) => {
         const stateMeta = Functions.ensureStateMeta(target);
 
-        if (stateMeta.outputs.indexOf(propertyKey) >= 0) {
+        if (stateMeta.outputs.findIndex(i => i.stateProp === propertyKey) >= 0) {
             throw new Error(`Output with name '${propertyKey}' has been alredy declared`);
         }
 
-        stateMeta.outputs.push(propertyKey);
+        if (!componentProp) {
+            if (typeof propertyKey === "string" &&
+            (propertyKey.length < EMITTER_SUFFIX.length || !(propertyKey.indexOf(EMITTER_SUFFIX, propertyKey.length - EMITTER_SUFFIX.length) !== -1))) {
+                componentProp = propertyKey + EMITTER_SUFFIX;
+            } else {
+                componentProp = propertyKey as string;
+            }
+        }       
+        stateMeta.outputs.push({ stateProp: propertyKey, componentProp: componentProp });
     };
 }
 
@@ -119,7 +127,7 @@ export function With<TState>(...propNames: (keyof TState)[]) {
 
 class Functions {
 
-    public static initialize<TState>(component: IWithState<TState>, state: TState) {
+    public static initialize<TState>(component: IWithState<TState>, state: TState, ngInputs: string[], ngOutputs: string[]) {
 
         if (component.state != null) {
             throw new Error("component should not have any initial state at this point");
@@ -130,16 +138,37 @@ class Functions {
 
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(state);
 
-        //Create emitters
-        for (const outputProp of stateMeta.outputs) {
+        //CheckInputs
 
-            const emitterProp = outputProp + EMITTER_SUFFIX;
+        const inputCmp = Functions.compareArrays(stateMeta.inputs.map(i => i.componentProp), ngInputs);
+
+        if (inputCmp.missedInArr1.length > 0) {
+            throw new Error("Could not find the following inputs in the state class: " + inputCmp.missedInArr1.join(","));
+        }
+        if (inputCmp.missedInArr2.length > 0) {
+            throw new Error("Could not find the following inputs in the component annotation: " + inputCmp.missedInArr2.join(","));
+        }
+
+        const outCmp = Functions.compareArrays(stateMeta.outputs.map(i => i.componentProp), ngOutputs);
+
+        if (outCmp.missedInArr1.length > 0) {
+            throw new Error("Could not find the following outputs in the state class: " + outCmp.missedInArr1.join(","));
+        }
+        if (outCmp.missedInArr2.length > 0) {
+            throw new Error("Could not find the following outputs in the component annotation: " + outCmp.missedInArr2.join(","));
+        }
+
+        
+        //Create component emitters
+        for (const outputProp of stateMeta.outputs) {
+            const emitterProp = outputProp.componentProp;
+
             if (component[emitterProp] == null) {
                 component[emitterProp] = new EventEmitter<any>();
             }
         }
 
-        //Set initial values
+        //Set initial values for input component properties
         for (const inputProp of stateMeta.inputs) {
             component[inputProp.componentProp] = state[inputProp.stateProp];
         }
@@ -180,11 +209,11 @@ class Functions {
 
         const previousState = component.state;
 
-        component.state = Functions.updateCycle(stateMeta, component, previousState, diff);
+        component.state = Functions.updateCycle(stateMeta, previousState, diff);
 
         for (const output of stateMeta.outputs) {
-            if (previousState[output] !== component.state[output]) {
-                Functions.emit(component, output, component.state[output]);
+            if (previousState[output.stateProp] !== component.state[output.stateProp]) {
+                Functions.emit(component, output, component.state[output.stateProp]);
             }
         }
 
@@ -193,7 +222,7 @@ class Functions {
         }
     }
 
-    private static updateCycle<TState>(stateMeta: StateMeta<TState>, component: IWithState<TState>, previousState: TState, diff: Partial<TState>): TState {
+    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): TState {
 
         let watchDog = 1000;
 
@@ -241,15 +270,8 @@ class Functions {
         throw new Error("Recursion overflow");
     }
 
-    private static emit<TState>(component: IWithState<TState>, prop: keyof TState, value: any): void {
-
-        let emitter: EventEmitter<any> | null = null;
-
-        emitter = Functions.checkEmitter(component, prop as string);
-
-        if (!emitter) {
-            emitter = Functions.checkEmitter(component, prop as string + EMITTER_SUFFIX);
-        }
+    private static emit<TState>(component: IWithState<TState>, prop: PropMeta<TState>, value: any): void {
+        const emitter = Functions.checkEmitter(component, prop.componentProp);
 
         if (!emitter) {
             throw new Error(`Could not find any emitter for "${prop}"`);
@@ -294,6 +316,29 @@ class Functions {
         }
         return Object.assign({}, previousState, diff);
     }
+
+    private static compareArrays<T>(arr1: T[], arr2: T[]): { missedInArr1: T[], missedInArr2: T[] } {
+        const result = { missedInArr1: [] as T[], missedInArr2: [] as T[] };
+
+        if (arr1 != null || arr2 != null) {
+            if (arr1 == null) {
+                result.missedInArr1 = arr2;
+            }
+            else if (arr2 == null) {
+                result.missedInArr2 = arr1;
+            } else {
+                result.missedInArr1 = arr2.filter(i => arr1.indexOf(i) < 0);
+                result.missedInArr2 = arr1.filter(i => arr2.indexOf(i) < 0);
+            }
+        }
+        return result;
+    }
+
+    //private static ensureEmitterSuffix<TState>(outputProp: PropMeta<TState>): string {
+    //    return outputProp.componentProp !== outputProp.stateProp
+    //        ? outputProp.componentProp
+    //        : outputProp.componentProp + EMITTER_SUFFIX;
+    //}
 }
 
 const STATE_META = "__state_meta__";
@@ -304,15 +349,15 @@ interface Constructor<T> { new(...args: any[]): T; }
 
 interface NgComponentType extends Constructor<OnChanges> {}
 
-interface InputMeta<TState> {
+interface PropMeta<TState> {
     readonly stateProp: keyof TState,
     readonly componentProp: string,
 }
 
 interface StateMeta<TState> {
     stateConstructor: Constructor<TState> | null;
-    inputs: InputMeta<TState>[];
-    outputs: (keyof TState)[];
+    inputs: PropMeta<TState>[];
+    outputs: PropMeta<TState>[];
     modifiers: { prop: (keyof TState), fun: Modifier<TState>[] }[];
 }
 

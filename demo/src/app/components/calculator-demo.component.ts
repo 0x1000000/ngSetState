@@ -12,4 +12,8 @@ export class CalculatorDemoComponent {
     public arg2: number | null = 0;
 
     public operation: "add" | "sub" = "add";
+
+    public result1: number;
+
+    public result2: number;
 }

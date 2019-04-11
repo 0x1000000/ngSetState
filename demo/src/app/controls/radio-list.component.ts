@@ -2,7 +2,7 @@ import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core
 import { WithState, IWithState } from "../ngSetState";
 import { RadioListState, ItemView } from "./radio-list.state";
 
-@WithState(RadioListState)
+@WithState(RadioListState, RadioListState.ngInputs, RadioListState.ngOutputs)
 @Component({
     selector: 'radio-list',
     changeDetection: ChangeDetectionStrategy.OnPush,

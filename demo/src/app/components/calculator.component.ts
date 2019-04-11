@@ -13,6 +13,6 @@ import { CalculatorState } from "./calculator.state";
 export class CalculatorComponent extends WithStateBase<CalculatorState> {
 
     constructor() {
-        super(new CalculatorState());
+        super(new CalculatorState(), CalculatorState.ngInputs, CalculatorState.ngOutputs);
     }
 }

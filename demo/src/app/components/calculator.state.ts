@@ -8,13 +8,13 @@ export class CalculatorState {
 
     public static readonly ngInputs: string[] = ["arg1", "arg2", "operation"];
 
-    public static readonly ngOutputs: string[] = ["arg1Change", "arg2Change", "operationChange"];
+    public static readonly ngOutputs: string[] = ["arg1Change", "arg2Change", "operationChange", "result"];
 
     @In("arg1")
-    public readonly arg1Ext: number | null = 0;
+    public readonly arg1Ext: number | null = null;
 
     @In("arg2")
-    public readonly arg2Ext: number | null = 0;
+    public readonly arg2Ext: number | null = null;
 
     public readonly arg1Text: string = "0";
 
@@ -29,13 +29,13 @@ export class CalculatorState {
     public readonly operation: Operation = "add";
 
     @Out()
-    public readonly arg1: number | null = 0;
+    public readonly arg1: number | null = null;
 
     @Out()
-    public readonly arg2: number | null = 0;
+    public readonly arg2: number | null = null;
 
-    @Out()
-    public readonly result: number | null = 0;
+    @Out("result")
+    public readonly result: number | null = null;
 
     public readonly operations: { id: Operation, title }[] = [{ id: "add", title: "Plus (+)" }, { id: "sub", title: "Minus (-)" }];
 
