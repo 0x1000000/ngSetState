@@ -1,2 +1,4 @@
 # ngSetState
-This is going to be a state control library for Angular framework. Now (19.04.03) it is in initial development state, so no more info so far :)
+Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.
+
+More detais will be posted soon (12.04.19)
