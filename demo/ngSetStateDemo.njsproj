@@ -68,7 +68,6 @@
     <TypeScriptCompile Include="src\app\components\calculator.state.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.component.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.state.ts" />
-    <TypeScriptCompile Include="src\app\ngSetState.ts" />
     <TypeScriptCompile Include="src\environments\environment.prod.ts" />
     <TypeScriptCompile Include="src\environments\environment.ts" />
     <TypeScriptCompile Include="src\main.ts" />

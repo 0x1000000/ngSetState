@@ -1,5 +1,5 @@
 import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
-import { WithState, IWithState } from "../ngSetState";
+import { WithState, IWithState } from "ng-set-state";
 import { RadioListState, ItemView } from "./radio-list.state";
 
 @WithState(RadioListState, RadioListState.ngInputs, RadioListState.ngOutputs)

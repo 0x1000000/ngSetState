@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { WithStateBase } from "../ngSetState";
+import { WithStateBase } from "ng-set-state";
 import { CalculatorState } from "./calculator.state";
 
 

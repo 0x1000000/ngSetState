@@ -1,4 +1,4 @@
-import { In, With, Out } from "../ngSetState";
+import { In, With, Out } from "ng-set-state";
 
 export class RadioListState {
 

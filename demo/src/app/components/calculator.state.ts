@@ -1,4 +1,4 @@
-import { In, Out, With } from "../ngSetState";
+import { In, Out, With } from "ng-set-state";
 
 export type Operation = "add" | "sub";
 
