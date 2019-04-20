@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{c074700d-da52-4895-8bab-9d38883d9075}</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <ProjectView>ShowAllFiles</ProjectView>
+    <ProjectView>ProjectFiles</ProjectView>
     <StartupFile />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
@@ -23,14 +23,19 @@
   <ItemGroup>
     <Content Include=".gitignore" />
     <Content Include=".npmignore" />
+    <Content Include="jasmine.json" />
     <Content Include="LICENSE" />
     <Content Include="package.json" />
+    <Content Include="spec\tsconfig.json" />
     <Content Include="tsconfig.json" />
     <Content Include="README.md" />
+    <TypeScriptCompile Include="spec\ngSetState.spec.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\ngSetState.ts" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="ngSetState" />
+    <Folder Include="spec\" />
     <Folder Include="src" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />

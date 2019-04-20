@@ -1,28 +1,20 @@
 {
   "compilerOptions": {
-    "baseUrl": "./src",
-    "rootDir": "./src",
-    "outDir": "./dist",
     "sourceMap": true,
     "declaration": true,
-    "module": "ES2015",
+    "module": "commonjs",
+    "experimentalDecorators": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "target": "es5",
     "strictNullChecks": true,
     "lib": [
-      "es2018",
-      "dom"
+      "es2018"
     ],
     "types": [
     ]
   },
   "exclude": [
-    "node_modules",
-    "demo",
-    "dist",
-    "compiled",
-    "spec"
   ],
   "compileOnSave": false,
   "buildOnSave": false

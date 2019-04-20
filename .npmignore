@@ -4,6 +4,10 @@ node_modules/
 demo/
 tsconfig.json
 package-lock.json
+
 *.user
 *.njsproj
 *.sln
+
+jasmine.json
+spec/
