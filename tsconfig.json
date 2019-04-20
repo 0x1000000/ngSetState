@@ -5,7 +5,7 @@
     "outDir": "./dist",
     "sourceMap": true,
     "declaration": true,
-    "module": "ES2015",
+    "module": "commonjs",
     "moduleResolution": "node",
     "importHelpers": true,
     "target": "es5",
