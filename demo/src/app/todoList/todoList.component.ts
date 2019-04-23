@@ -5,7 +5,9 @@ import { TodoService, TodoItem } from './TodoService';
 
 @Component({
     selector: 'todo-list',
-    templateUrl: './todoList.component.html'
+    templateUrl: './todoList.component.html',
+    inputs: TodoListState.ngInputs,
+    outputs: TodoListState.ngOutputs
 })
 export class TodoListComponent extends WithStateBase<TodoListState> {
 

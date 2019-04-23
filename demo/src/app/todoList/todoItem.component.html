@@ -1,9 +1,8 @@
-<div class="todo-item">
-    <span>{{state.item.name}}</span>
-</div>
+<span>{{state.item?.name}}</span>
 
 <style>
-    .todo-item {
+    :host {
+        display: block;
         margin: 10px;
         padding: 10px;
         width: 200px;
@@ -11,7 +10,7 @@
         border-radius: 5px;
     }
 
-        .todo-item:hover {
+        :host:hover {
             background: rgb(206, 212, 218);
         }
 </style>

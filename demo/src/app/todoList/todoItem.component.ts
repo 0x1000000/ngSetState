@@ -5,11 +5,11 @@ import { TodoService, TodoItem } from './TodoService';
 
 @Component({
     selector: 'todo-item',
-    templateUrl: './todoItem.component.html'
+    templateUrl: './todoItem.component.html',
+    inputs: TodoItemState.ngInputs,
+    outputs: TodoItemState.ngOutputs
 })
 export class TodoItemComponent extends WithStateBase<TodoItemState> {
-
-    private readonly _todoService = new TodoService();
 
     constructor() {
         super(new TodoItemState(), TodoItemState.ngInputs, TodoItemState.ngOutputs);
