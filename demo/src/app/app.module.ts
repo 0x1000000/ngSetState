@@ -6,13 +6,17 @@ import { AppComponent } from './app.component';
 import { RadioListComponent } from "./controls/radio-list.component";
 import { CalculatorDemoComponent } from "./components/calculator-demo.component";
 import { CalculatorComponent } from "./components/calculator.component";
+import { TodoListComponent } from "./todoList/todoList.component";
+import { TodoItemComponent } from "./todoList/todoItem.component";
 
 @NgModule({
     declarations: [
         AppComponent,
         RadioListComponent,
         CalculatorComponent,
-        CalculatorDemoComponent
+        CalculatorDemoComponent,
+        TodoListComponent,
+        TodoItemComponent
     ],
     imports: [
         BrowserModule,

@@ -26,6 +26,7 @@
     <TypeScriptToolsVersion>3.1</TypeScriptToolsVersion>
     <EnableTypeScript>true</EnableTypeScript>
     <UseIISExpress>false</UseIISExpress>
+    <ToolsVersionPromptShown>3.1</ToolsVersionPromptShown>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -44,6 +45,10 @@
     <Content Include="src\app\components\calculator-demo.component.html" />
     <Content Include="src\app\components\calculator.component.html" />
     <Content Include="src\app\controls\radio-list.component.html" />
+    <Content Include="src\app\todoList\todoItem.component.html" />
+    <Content Include="src\app\todoList\todoList.component.html">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\assets\.gitkeep" />
     <Content Include="src\browserslist" />
     <Content Include="src\favicon.ico" />
@@ -68,6 +73,15 @@
     <TypeScriptCompile Include="src\app\components\calculator.state.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.component.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.state.ts" />
+    <TypeScriptCompile Include="src\app\todoList\todoItem.component.ts" />
+    <TypeScriptCompile Include="src\app\todoList\todoItem.state.ts" />
+    <TypeScriptCompile Include="src\app\todoList\todoList.component.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\app\todoList\todoList.state.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
+    <TypeScriptCompile Include="src\app\todoList\TodoService.ts" />
     <TypeScriptCompile Include="src\environments\environment.prod.ts" />
     <TypeScriptCompile Include="src\environments\environment.ts" />
     <TypeScriptCompile Include="src\main.ts" />
@@ -81,6 +95,7 @@
     <Folder Include="src\app\" />
     <Folder Include="src\app\controls\" />
     <Folder Include="src\app\components\" />
+    <Folder Include="src\app\todoList\" />
     <Folder Include="src\assets\" />
     <Folder Include="src\environments\" />
   </ItemGroup>
