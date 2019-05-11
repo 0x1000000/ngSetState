@@ -1,11 +1,13 @@
-import { OnChanges, SimpleChanges, EventEmitter, Type, Output } from "@angular/core";
+import { OnChanges, SimpleChanges, EventEmitter } from "@angular/core";
 
 export interface IWithState<TState> extends OnChanges {
     state: TState;
 
     modifyState(propName: keyof TState, value: any): void;
 
-    onAfterStateApplied?(): void;
+    modifyStateDiff(diff: Partial<TState>|null): void;
+
+    onAfterStateApplied?(previousState?: TState): void;
 }
 
 export abstract class WithStateBase<TState> implements IWithState<TState> {
@@ -23,6 +25,11 @@ export abstract class WithStateBase<TState> implements IWithState<TState> {
     public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): void {
         Functions.modifyState(this, propName, value);
     }
+
+    public modifyStateDiff(diff: Partial<TState> | null) {
+        Functions.nextState(this, diff);
+    }
+
     public ngOnChanges(changes: SimpleChanges): void {
         Functions.ngOnChanges(this, changes);
     }    
@@ -51,6 +58,10 @@ export function WithState<TState>(stateType: Constructor<TState>, ngInputs: stri
 
             public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): void {
                 Functions.modifyState(this, propName, value);
+            }
+
+            public modifyStateDiff(diff: Partial<TState> | null) {
+                Functions.nextState(this, diff);
             }
 
             public ngOnChanges(changes: SimpleChanges): void {
@@ -204,21 +215,27 @@ class Functions {
         }
     }
 
-    public static nextState<TState>(component: IWithState<TState>, diff: Partial<TState>): void {
+    public static nextState<TState>(component: IWithState<TState>, diff: Partial<TState> | null): void {
+        if (diff == null) {
+            return;
+        }
+
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
 
         const previousState = component.state;
 
         component.state = Functions.updateCycle(stateMeta, previousState, diff);
 
-        for (const output of stateMeta.outputs) {
-            if (previousState[output.stateProp] !== component.state[output.stateProp]) {
-                Functions.emit(component, output, component.state[output.stateProp]);
+        if (component.state !== previousState) {
+            for (const output of stateMeta.outputs) {
+                if (previousState[output.stateProp] !== component.state[output.stateProp]) {
+                    Functions.emit(component, output, component.state[output.stateProp]);
+                }
             }
-        }
 
-        if (component.onAfterStateApplied) {
-            component.onAfterStateApplied();
+            if (component.onAfterStateApplied) {
+                component.onAfterStateApplied(previousState);
+            }
         }
     }
 
@@ -309,6 +326,18 @@ class Functions {
 
     private static cloneStateObject<TState>(previousState: TState, diff: Partial<TState>, stateMeta: StateMeta<TState>): TState {
 
+        //Check changes
+        if (diff == null) {
+            return previousState;
+        }
+        const diffProperties = Object.getOwnPropertyNames(diff);
+        if (diffProperties == null || diffProperties.length < 0) {
+            return previousState;
+        }
+        if (diffProperties.every(dp => previousState[dp] === diff[dp])) {
+            return previousState;
+        }
+
         if (stateMeta.stateConstructor) {
             const newInstance = Object.create(stateMeta.stateConstructor.prototype);
             Object.assign(newInstance, previousState, diff);
@@ -345,7 +374,7 @@ const STATE_META = "__state_meta__";
 
 const EMITTER_SUFFIX = "Change";
 
-interface Constructor<T> { new(...args: any[]): T; }
+export interface Constructor<T> { new(...args: any[]): T; }
 
 interface NgComponentType extends Constructor<OnChanges> {}
 

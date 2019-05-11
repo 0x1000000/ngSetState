@@ -16,7 +16,9 @@ export class RadioListComponent implements IWithState<RadioListState>{
 
     public ngOnChanges(changes: SimpleChanges): void {}
 
-    public modifyState<TK extends keyof RadioListState>(propName: TK, value: RadioListState[TK]): void {}
+    public modifyState<TK extends keyof RadioListState>(propName: TK, value: RadioListState[TK]): void { }
+
+    public modifyStateDiff(diff: Partial<RadioListState> | null): void {}
 
     public onRadioChange(item: ItemView): void {
         this.modifyState("selected", item.value);

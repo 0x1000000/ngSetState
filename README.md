@@ -4,7 +4,14 @@
 
 Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.
 
-## Get Started
+## Table of Contents
+
+1. [Get Started](#get_satrted)
+2. [API](#api)
+3. [Explanation](#explanation)
+<a name="get_satrted"/>
+
+## 1. Get Started
 
 **Step 1:** Install ng-set-state
 
@@ -170,7 +177,73 @@ It is possible to call **modify** method directly from template – Angular AoT 
 ```html
 <some-component [(property1)]="…"  (property2Change)="…$event…"></some-component>
 ```
-## Explanation
+<a name="api"/>
+
+## 2. API
+
+* ### IWithState:&lt;TState&gt; (WithStateBase)
+   * **state: TState** - gets access to a current component state (can be used in markup);
+   * **modifyState(propName: keyof TState, value: any): void** - sets a new component state with a new state member value. Other state member will be also changed if they depend on the modified member (see, “With” decorator)
+   * **modifyStateDiff(diff: Partial&lt;TState&gt;|null): void** - sets a new component state with new state member values. Other state member will be also changed if they depend on the modified members (see, “With” directive)
+   * **onAfterStateApplied?()** - If this method is implemented, it will be called when the component has just moved to a new state. The method can be used to imitate an asynchronous operation (see “Asynchronous operations” (todo)).
+* ### Decorators
+  * **In&lt;TState&gt;(componentProp?: string)** - creates a mapping between some state property and some component input parameter. Changing the input parameter will lead to state modification. Example:
+  ```ts
+  class SomeState{
+      ... 
+      @In()
+      public readonly someProperty: string;
+      ...
+  } 
+  ```
+  the code is equivalent to:
+  ```ts
+  class SomeComponent{
+      ... 
+      @Input()
+      public set someProperty(value: string){
+          this.modifyState("someProperty", value);
+      }
+      ...
+  } 
+  ``` 
+  * **Out&lt;TState&gt;(componentProp?: string)** -creates a mapping between some state parameter and some component output editor. Example:
+  ```ts
+  class SomeState{
+      ... 
+      @Out()
+      public readonly someProperty: string;
+      ...
+  } 
+  ```
+  the code is equivalent to:
+  ```ts
+  class SomeComponent{
+      ... 
+      @Output()
+      public readonly somePropertyChange = new EventEmitter<string>();
+      ...
+      public onAfterStateApplied(previousState: CalculatorState): void {
+          if (this.state.someProperty !== previousState.someProperty) {
+              this.somePropertyChange.emit(this.state.someProperty);
+          }
+      }
+    ...
+  } 
+  ```
+  * **With&lt;TState&gt;(...propNames: (keyof TState)[])** - It marks a function that returns a new state difference when at least one value of passed members has changed (a state with modified properties will be passed as a parameter). The state difference will be applied to a current state and the library will check all functions, marked with the decorator, one more. The process will continue until a component state becomes stable or a limit of cycles (default value equals 1000) is reached. Example:
+  ```ts
+    @With("someProperty1", "someProperty2",)
+    public static calc3(currentState: SomeState): Partial<SomeState> | null {
+        return {
+            someProperty3: currentState.someProperty1 + currentState.someProperty2,
+        }
+    }
+
+  ```
+<a name="explanation"/>
+
+## 3. Explanation
 The description of this library says it helps developing angular components in a more “functional” style so let’s figure out how exactly it helps. In short, the main principles of “functional” programming paradigm are: 
 * avoiding changing state and mutable data
 * “pure” functions (idempotent code parts with no side effects)

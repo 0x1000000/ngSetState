@@ -1,4 +1,5 @@
-<span>{{state.item?.name}}</span>
+<span *ngIf="isViewMode()">{{state.item?.name}}</span>
+<input *ngIf="isEditMode()" type="text" [value]="state.editableText" (input)="modifyState('editableText', $event.target.value)" (blur)="onEditBlur()">
 
 <style>
     :host {

@@ -31,9 +31,95 @@ describe('Tests', () => {
         //Assert result
         expect(result).toBe(17);
     });
+
+    it('modifyState should update state and output parameters should reflect the changes', () => {
+
+        let result: number = -100;
+        const component = new TestComponent() as any as ITestComponent;
+
+
+        //Outputs subscription
+        (component).resultChange.subscribe((value) => result = value);
+
+        //arg1 to 7
+        component.modifyState("arg1", 7);
+
+        //Assert result
+        expect(result).toBe(7);
+
+        //arg2 to 8
+        component.modifyState("arg2", 8);
+
+        //Assert result
+        expect(result).toBe(15);
+
+        //arg2 to 10
+        component.modifyState("arg2", 10);
+
+        //Assert result
+        expect(result).toBe(17);
+    });
+
+    it('modifyStateDiff should update state and output parameters should reflect the changes', () => {
+
+        let result: number = -100;
+        const component = new TestComponent() as any as ITestComponent;
+        let counter = 0;
+
+
+        //Outputs subscription
+        (component).resultChange.subscribe((value) => {
+            counter++;
+            return result = value;
+        });
+
+        //arg1 to 7
+        component.modifyStateDiff({arg1: 7});
+
+        //Assert result
+        expect(result).toBe(7);
+
+        expect(counter).toBe(1);
+        expect(component.previousState.arg1).toBe(0);
+
+        //arg2 to 8, result to 0
+        component.modifyStateDiff({arg2: 8, result: 0});
+        expect(component.previousState.arg2).toBe(0);
+
+        //Assert result
+        expect(result).toBe(15);
+
+        expect(counter).toBe(2);
+
+        //arg1 to 10, arg2 to 11
+        component.modifyStateDiff({arg1: 10, arg2: 11});
+        expect(component.previousState.arg1).toBe(7);
+        expect(component.previousState.arg2).toBe(8);
+
+        //Assert result
+        expect(result).toBe(21);
+        expect(counter).toBe(3);
+
+        //arg1 to 10, arg2 to 11 (same)
+
+        const prevState = component.state;
+        component.modifyStateDiff({arg1: 10, arg2: 11});
+
+        //Assert result
+        expect(result).toBe(21);
+        expect(counter).toBe(3);
+        expect(component.state).toBe(prevState);
+
+        //null
+        component.modifyStateDiff(null);
+        expect(result).toBe(21);
+        expect(counter).toBe(3);
+    });
 });
 
 class TestComponent extends WithStateBase<TestState> {
+
+    public previousState: TestState;
 
     constructor() {
         super(new TestState(), TestState.ngInputs, TestState.ngOutputs);
@@ -42,9 +128,16 @@ class TestComponent extends WithStateBase<TestState> {
     public onValue2(value: number) {
         this.modifyState("arg2", value);
     }
+
+    public onAfterStateApplied?(previousState: TestState): void {
+        this.previousState = previousState;
+    }
 }
 
 interface ITestComponent extends IWithState<TestState>{
+
+    previousState: TestState;
+
     arg1: number;
 
     resultChange: EventEmitter<number>;
