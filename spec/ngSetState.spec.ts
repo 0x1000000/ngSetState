@@ -115,6 +115,21 @@ describe('Tests', () => {
         expect(result).toBe(21);
         expect(counter).toBe(3);
     });
+
+    it("Recursive update should not start if some key exists in a 'difference' object but state property value has not changed", () => {
+        const component = new TestComponentForCycles();
+
+        component.modifyState("arr1", 100);
+
+        expect(component.state.arr1).toBe(100);
+    });
+
+    it("Infinite recursive update should be detected", () => {
+        const component = new TestComponentForCycles();
+
+        expect(() => component.modifyState("arr3", 1)).toThrow(new Error("Recursion overflow"));
+        expect(component.state.arr3).toBe(0);
+    });
 });
 
 class TestComponent extends WithStateBase<TestState> {
@@ -161,10 +176,38 @@ class TestState {
 
     @With("arg1", "arg2")
     public static calcResult(currentSate: TestState): Partial<TestState> | null {
-
         return {
-            result: currentSate.arg1 + currentSate.arg2
+            result: currentSate.arg1 + currentSate.arg2,
+        }
+    }
+}
+
+class TestComponentForCycles extends WithStateBase<TestStateForCycles> {
+    constructor() {
+        super(new TestStateForCycles(), [], []);
+    }
+}
+
+class TestStateForCycles {
+
+    public readonly arr1: number = 0;
+
+    public readonly arr2: number = 0;
+
+    public readonly arr3: number = 0;
+
+    @With("arr1")
+    public static calcArr2(currentSate: TestStateForCycles): Partial<TestStateForCycles> | null {
+        return {
+            arr2: currentSate.arr2+1,
+            arr1: currentSate.arr1
         }
     }
 
+    @With("arr3")
+    public static calcArr3(currentSate: TestStateForCycles): Partial<TestStateForCycles> | null {
+        return {
+            arr3: currentSate.arr3 + 1
+        }
+    }
 }

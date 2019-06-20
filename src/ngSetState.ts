@@ -255,8 +255,7 @@ class Functions {
             let cumulativeModDiff: Partial<TState> | null = null;
 
             for (const modifier of stateMeta.modifiers) {
-
-                if (diffKeys.some(dk => modifier.prop === dk)) {
+                if (diffKeys.some(dk => modifier.prop === dk && previousState[dk] !== newState[dk]/*Even if the key is in diff it does not mean that the property is actually changed*/)) {
                     for (const fun of modifier.fun) {
                         const localDiff = fun.apply(newState, [newState, previousState, diff]);
                         if (localDiff != null) {

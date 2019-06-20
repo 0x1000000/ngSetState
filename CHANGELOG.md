@@ -1,3 +1,6 @@
+## 0.1.1
+* **BUG FIX**: "Recursive update should not start if some key exists in a 'difference' object (returned by a modifier) but state property value has not changed"
+
 ## 0.1.0
 * **modifyStateDiff** - a new API method that allows modification of several state members at once;
 * **onAfterStateApplied** - can receive a previous state as an argument;
