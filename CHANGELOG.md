@@ -1,3 +1,6 @@
+## 0.1.2
+* **BUG FIX**: "During a serie of recursive updates some modifiers could be omit if a corresponding filed was changed in the middle of the serie"
+
 ## 0.1.1
 * **BUG FIX**: "Recursive update should not start if some key exists in a 'difference' object (returned by a modifier) but state property value has not changed"
 

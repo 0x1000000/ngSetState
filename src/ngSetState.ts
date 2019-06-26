@@ -240,50 +240,58 @@ class Functions {
     }
 
     private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): TState {
+        if (diff == null) {
+            return previousState;
+        }
+        const currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
 
+        return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff);
+    }
+
+    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): TState {
         let watchDog = 1000;
+        let diffKeys = Object.keys(diff);
+        let modifiers: Modifier<TState>[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
         while (watchDog > 0) {
-            if (diff == null) {
-                return previousState;
+
+            if (modifiers.length < 1) {
+                return currentState;
             }
+            const modifiersAcc: Modifier<TState>[] = [];
+            for (const modifier of modifiers) {
+                diff = modifier.apply(currentState, [currentState, previousState, diff]);
+                if (diff != null) {
 
-            const diffKeys = Object.keys(diff);
+                    diffKeys = Object.keys(diff);
 
-            let newState = Functions.cloneStateObject(previousState, diff, stateMeta);
-
-            let cumulativeModDiff: Partial<TState> | null = null;
-
-            for (const modifier of stateMeta.modifiers) {
-                if (diffKeys.some(dk => modifier.prop === dk && previousState[dk] !== newState[dk]/*Even if the key is in diff it does not mean that the property is actually changed*/)) {
-                    for (const fun of modifier.fun) {
-                        const localDiff = fun.apply(newState, [newState, previousState, diff]);
-                        if (localDiff != null) {
-
-                            const localDiffKeys = Object.keys(localDiff);
-                            if (!localDiffKeys.every(diffKey => previousState[diffKey] === localDiff[diffKey])) {
-                                if (!cumulativeModDiff) {
-                                    cumulativeModDiff = {};
-                                }
-
-                                Object.assign(cumulativeModDiff, localDiff);
-
-                                previousState = newState;
-                                newState = Functions.cloneStateObject(previousState, diff, stateMeta);
-                            }
-                        }
+                    if (diffKeys.some(diffKey => previousState[diffKey] !== diff[diffKey])) {
+                        previousState = currentState;
+                        currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
+                        Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, modifiersAcc);
                     }
                 }
             }
-            if (cumulativeModDiff == null) {
-                return newState;
-            }
-
-            previousState = newState;
-            diff = cumulativeModDiff;
+            modifiers = modifiersAcc;
             watchDog--;
         }
         throw new Error("Recursion overflow");
+    }
+
+    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: string[], modifiersAcc: Modifier<TState>[] | null): Modifier<TState>[] {
+        const acc: Modifier<TState>[] = modifiersAcc == null ? [] : modifiersAcc;
+
+        for (const modifier of stateMeta.modifiers) {
+            if (diffKeys.some(dk => modifier.prop === dk && previousState[dk] !== newState[dk] /*Even if the key is in diff it does not mean that the property is actually changed*/)) {
+                for (const modifierFun of modifier.fun) {
+                    if (acc.indexOf(modifierFun) < 0) {
+                        acc.push(modifierFun);
+                    }
+                }
+            }
+        }
+
+        return acc;
     }
 
     private static emit<TState>(component: IWithState<TState>, prop: PropMeta<TState>, value: any): void {

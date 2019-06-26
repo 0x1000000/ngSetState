@@ -11,3 +11,6 @@ package-lock.json
 
 jasmine.json
 spec/
+
+bin/
+obj/

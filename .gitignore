@@ -1,6 +1,8 @@
 #Visual Studio
 .vs
 *.user
+bin/
+obj/
 
 # Logs
 logs

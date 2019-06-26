@@ -173,7 +173,32 @@ export class SomeComponent extends WithStateBase<State> {
 
 It is possible to call **modify** method directly from template – Angular AoT will check that such calls are correct.
 
-**Step 7:** Now the component can be used as follows:
+**Step 7:** Add state modifiers for actions that do relate to value changes (e.g. a button click )
+```ts
+export class SomeComponent extends WithStateBase<State> {
+    ...
+    public onChangeValuesClick(value: string): void {
+        this.modifyStateDiff(this.state.withChangedValues());
+    }
+}
+```
+```ts
+export class State {
+    ...
+    public withChangedValues(): Partial<State> | null {
+        if(this.property1 === "magic value"){
+            return {
+                property2: "new value", 
+                property3: "new value"
+            };
+        }
+        return null;
+    }
+}
+
+```
+
+**Step 8:** Now the component can be used as follows:
 ```html
 <some-component [(property1)]="…"  (property2Change)="…$event…"></some-component>
 ```

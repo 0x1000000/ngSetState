@@ -1,15 +1,18 @@
 {
   "compilerOptions": {
+    "outDir": "./dist",
     "sourceMap": true,
-    "declaration": true,
+    "declaration": false,
     "module": "commonjs",
     "experimentalDecorators": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "target": "es5",
     "strictNullChecks": true,
+    "skipLibCheck": true,
     "lib": [
-      "es2018"
+      "es2018",
+      "dom"
     ],
     "types": [
     ]

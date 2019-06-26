@@ -124,6 +124,15 @@ describe('Tests', () => {
         expect(component.state.arr1).toBe(100);
     });
 
+    it("Intermediate value change should be detected", () => {
+        const component = new TestComponentForCycles2();
+
+        component.modifyState("arr1", 1);
+        expect(component.state.arr2).toBe(2);
+        expect(component.state.arr3).toBe(3);
+    });
+
+
     it("Infinite recursive update should be detected", () => {
         const component = new TestComponentForCycles();
 
@@ -208,6 +217,40 @@ class TestStateForCycles {
     public static calcArr3(currentSate: TestStateForCycles): Partial<TestStateForCycles> | null {
         return {
             arr3: currentSate.arr3 + 1
+        }
+    }
+}
+
+class TestComponentForCycles2 extends WithStateBase<TestStateForCycles2> {
+    constructor() {
+        super(new TestStateForCycles2(), [], []);
+    }
+}
+
+class TestStateForCycles2 {
+
+    public readonly arr1: number = 0;
+
+    public readonly arr2: number = 0;
+
+    public readonly arr3: number = 0;
+
+    @With("arr1")
+    public static calcArr2(currentSate: TestStateForCycles2): Partial<TestStateForCycles2> | null {
+
+        if (currentSate.arr1 < 5) {
+            return {
+                arr1: currentSate.arr1 + 1,
+                arr2: currentSate.arr1 === 2 ? 2 : currentSate.arr2
+            };
+        }
+        return null;
+    }
+
+    @With("arr2")
+    public static calcArr3(currentSate: TestStateForCycles2): Partial<TestStateForCycles2> | null {
+        return {
+            arr3: currentSate.arr2+1
         }
     }
 }
