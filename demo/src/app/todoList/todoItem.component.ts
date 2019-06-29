@@ -15,9 +15,6 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
         super(new TodoItemState(), TodoItemState.ngInputs, TodoItemState.ngOutputs);
     }
 
-    public onAfterStateApplied() {
-    }
-
     @HostListener("click")
     public onHostClick() {
         this.modifyStateDiff(this.state.withEditMode());
@@ -25,6 +22,21 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
 
     public onEditBlur() {
         this.modifyStateDiff(this.state.withEditEnd());
+    }
+
+    public onInputInit(input: HTMLInputElement) {
+        input.focus();
+    }
+
+    public onCompleteClick(ev: Event) {
+        ev.stopImmediatePropagation();
+        ev.stopPropagation();
+    }
+
+    public onDeleteClick(ev: Event) {
+        ev.stopImmediatePropagation();
+        ev.stopPropagation();
+        this.modifyState("isDeleted", true);
     }
 
     public isViewMode() {

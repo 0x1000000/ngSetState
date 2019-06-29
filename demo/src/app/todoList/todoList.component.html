@@ -1,10 +1,27 @@
-<h1>Todo List</h1>
-<todo-item *ngFor="let item of state.items" [item]="item">
-    
+<todo-item *ngFor="let item of state.items;trackBy: trackByFn"
+           [item]="item.model"
+           [isDirty]="item.isDirty"
+           (itemChange)="onItemChange(item, $event)"
+           (isDeletedChange)="onItemDeleted(item)">
 </todo-item>
+<todo-item [isNew]="true" (itemChange)="onItemChange(state.newItem, $event)">
+
+</todo-item>
+
+<div class="l-status" *ngIf="state.status">
+    <div class="spinner-border spinner-border-sm" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <span>{{state.status}}</span>
+</div>
 
 <style>
     todo-item {
         margin: 10px;
+    }
+
+    .l-status {
+        margin-top: 20px;
+        font-size: 0.8rem;
     }
 </style>

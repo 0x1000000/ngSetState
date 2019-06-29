@@ -1,0 +1,60 @@
+<nav class="l-tab-header disable-text-selection">
+    <div class="l-tab-labels">
+        <div *ngFor="let label of state.labels"
+             #labelElement
+             class="l-tab-label"
+             [class.l-tab-label-selected]="label.selected"
+             (click)="onLabelClick(labelElement, label)">
+             {{label.title}}
+        </div>
+        <div class="l-ink-bar" [style.left.px]="state.barOffset" [style.width.px]="state.barWidth"></div>
+    </div>
+</nav>
+<div>
+    <ng-content>
+
+    </ng-content>
+</div>
+
+<style>
+    :host {
+        display: block;
+    }
+
+    .l-tab-header {
+        background-color: rgba(0,0,0,.03);
+    }
+
+    .l-tab-labels {
+        position: relative;
+        height: 50px;
+        border-bottom: 1px solid rgba(0,0,0,.12);
+    }
+
+    .l-tab-label {
+        display: inline-block;
+        height: 50px;
+        line-height: 50px;
+        text-align: center;
+        color: rgba(0,0,0,.87);
+        font-size: 1.2rem;
+        padding: 0 10px;
+        min-width: 160px;
+        cursor: pointer;
+    }
+
+    .l-tab-label-selected {
+        color: rgba(0,0,0,.92);
+        cursor: initial;
+    }
+
+    .l-ink-bar {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 2px;
+        min-width: 160px;
+        background-color: #3f51b5;
+        transition: .3s cubic-bezier(.35,0,.25,1);
+    }
+</style>

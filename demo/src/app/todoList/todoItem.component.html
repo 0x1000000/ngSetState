@@ -1,17 +1,44 @@
-<span *ngIf="isViewMode()">{{state.item?.name}}</span>
-<input *ngIf="isEditMode()" type="text" [value]="state.editableText" (input)="modifyState('editableText', $event.target.value)" (blur)="onEditBlur()">
-
+<div *ngIf="isViewMode()" class="l-text">
+    {{state.visibleText}}<span *ngIf="state.isDirty">*</span>
+</div>
+<div *ngIf="isEditMode()" class="l-input">
+    <input #input
+           type="text"
+           [value]="state.editableText"
+           (input)="modifyState('editableText', $event.target.value)"
+           (blur)="onEditBlur()">
+    <life-cycle (onInit)="onInputInit(input)"></life-cycle>
+</div>
+<div class="l-buttons" *ngIf="state.isButtonsVisible">
+    <button class="btn btn-primary btn-sm" type="submit" (click)="onCompleteClick($event)">Complete</button>
+    <button class="btn btn-danger btn-sm" type="submit" (click)="onDeleteClick($event)">Delete</button>
+</div>
 <style>
     :host {
-        display: block;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        height: 40px;
         margin: 10px;
-        padding: 10px;
-        width: 200px;
+        width: 400px;
         border: 1px solid #ced4da;
         border-radius: 5px;
+        padding: 0 5px;
     }
 
         :host:hover {
             background: rgb(206, 212, 218);
         }
+    .l-text {
+        flex: 1 1 auto;
+    }
+    .l-input {
+        flex: 1 1 auto;
+    }
+    .l-buttons button {
+        margin-left: 5px;
+    }
+    .l-buttons {
+        flex: 0 1 auto;
+    }
 </style>

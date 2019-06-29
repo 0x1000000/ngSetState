@@ -3,16 +3,17 @@ import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { AppComponent } from './app.component';
-import { RadioListComponent } from "./controls/radio-list.component";
-import { CalculatorDemoComponent } from "./components/calculator-demo.component";
-import { CalculatorComponent } from "./components/calculator.component";
+import { CalculatorDemoComponent } from "./calculator/calculator-demo.component";
+import { CalculatorComponent } from "./calculator/calculator.component";
 import { TodoListComponent } from "./todoList/todoList.component";
 import { TodoItemComponent } from "./todoList/todoItem.component";
+import { ControlsModule } from "./controls/controls.module";
+import { StateStorageService } from "./StateStorageService";
+import { TodoService } from "./todoList/TodoService";
 
 @NgModule({
     declarations: [
         AppComponent,
-        RadioListComponent,
         CalculatorComponent,
         CalculatorDemoComponent,
         TodoListComponent,
@@ -20,9 +21,10 @@ import { TodoItemComponent } from "./todoList/todoItem.component";
     ],
     imports: [
         BrowserModule,
-        FormsModule
+        FormsModule,
+        ControlsModule
     ],
-    providers: [],
+    providers: [StateStorageService, TodoService],
     bootstrap: [AppComponent]
 })
 export class AppModule {

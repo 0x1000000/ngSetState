@@ -1,0 +1,22 @@
+<h2>Component 1</h2>
+<calculator
+    [arg1]="state.arg1"
+    (arg1Change)="modifyState('arg1', $event)"
+    [arg2]="state.arg2"
+    (arg2Change)="modifyState('arg2', $event)"
+    [operation]="state.operation"
+    (operationChange)="modifyState('operation', $event)"
+    (result)="result1 = $event"></calculator>
+
+<h2>Component 2 (Mirror)</h2>
+<calculator
+    [arg1]="state.arg1"
+    (arg1Change)="modifyState('arg1', $event)"
+    [arg2]="state.arg2"
+    (arg2Change)="modifyState('arg2', $event)"
+    [operation]="state.operation"
+    (operationChange)="modifyState('operation', $event)"
+    (result)="result2 = $event"></calculator>
+<h2>Result</h2>
+
+C1: {{result1}}; C2: {{result2}}

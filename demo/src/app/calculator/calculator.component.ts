@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { CalculatorState } from "./calculator.state";
+import { StateStorageService } from "../StateStorageService";
 
 
 @Component({
@@ -11,6 +12,8 @@ import { CalculatorState } from "./calculator.state";
     outputs: CalculatorState.ngOutputs
 })
 export class CalculatorComponent extends WithStateBase<CalculatorState> {
+
+    private static readonly  stateStorageKey = "calculatorDemo";
 
     constructor() {
         super(new CalculatorState(), CalculatorState.ngInputs, CalculatorState.ngOutputs);

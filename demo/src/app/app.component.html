@@ -4,13 +4,18 @@
         Welcome to ngSetState Demo
     </h1>
 </div>
-
-<div class="main-content">
-    <calculator-demo></calculator-demo>
-</div>
-<div class="main-content">
-    <todo-list></todo-list>
-</div>
+<tabs>
+    <tab-pane title="Calculator" (isVisibleChange)="modifyState('calculatorVisible',$event)">
+        <div class="main-content" *ngIf="state.calculatorVisible">
+            <calculator-demo></calculator-demo>
+        </div>
+    </tab-pane>
+    <tab-pane title="ToDo List"  (isVisibleChange)="modifyState('todoListVisible',$event)">
+        <div class="main-content" *ngIf="state.todoListVisible">
+            <todo-list></todo-list>
+        </div>
+    </tab-pane>
+</tabs>
 <style>
     .main-content {
         margin: 20px;
