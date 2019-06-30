@@ -1,7 +1,7 @@
 import { Component, ChangeDetectorRef } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { TodoListState } from './todoList.state';
-import { TodoService, TodoItem } from './TodoService';
+import { TodoService, TodoItem, TodoItemCtx } from './TodoService';
 import { ItemViewModel } from "./ItemViewModel";
 import { StateStorageService } from "../StateStorageService";
 
@@ -43,11 +43,11 @@ export class TodoListComponent extends WithStateBase<TodoListState> {
     }
 
     public onItemChange(currentViewModel: ItemViewModel, newItem: TodoItem) {
-        this.modifyStateDiff(this.state.withNewChangedItem(currentViewModel, newItem));
+        this.modifyStateDiff(this.state.withUpdatedItem(currentViewModel, newItem));
     }
 
     public onItemDeleted(currentViewModel: ItemViewModel) {
-        this.modifyStateDiff(this.state.withNewChangedItem(currentViewModel, null));
+        this.modifyStateDiff(this.state.withUpdatedItem(currentViewModel, null));
     }
 
     public trackByFn(index: number, item: ItemViewModel): number {
@@ -61,8 +61,10 @@ export class TodoListComponent extends WithStateBase<TodoListState> {
     }
 
     private async saveItems(): Promise<void> {
-        const changedModels = this.state.itemsInProgress.filter(i => i.model != null).map(i => i.model as TodoItem);
-        const toDelete = this.state.itemsInProgress.filter(i => i.model == null).map(i => i.previousModel as TodoItem);
+        const changedModels: TodoItemCtx[] = this.state.itemsInProgress.filter(i => i.model != null)
+            .map(i => ({ ctxId: i.vmId, model: (i.model as TodoItem) }));
+        const toDelete = this.state.itemsInProgress.filter(i => i.model == null)
+            .map(i => ({ ctxId: i.vmId, model: i.previousModel as TodoItem }));
 
         if (changedModels.length > 0) {
             const result = await this._todoService.saveItems(changedModels);
@@ -70,7 +72,7 @@ export class TodoListComponent extends WithStateBase<TodoListState> {
         }
 
         if (toDelete.length > 0) {
-            await this._todoService.deleteItems(toDelete);
+            await this._todoService.deleteItems(toDelete.map(i=>i.model));
             this.modifyStateDiff(this.state.withSavedItems(toDelete));
         }
     }

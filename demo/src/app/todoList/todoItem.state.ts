@@ -112,4 +112,12 @@ export class TodoItemState
         }
         return null;
     }
+
+    public withCompleted(): Partial<TodoItemState> | null {
+        if (this.item == null || this.item.status) {
+            return null;
+        }
+
+        return { item: Object.assign({}, this.item, { status: true }) };
+    }
 }

@@ -16,25 +16,25 @@ export class TodoService {
         return Array.from(this._storage);
     }
 
-    public async saveItems(items: TodoItem[]): Promise<TodoItem[]> {
+    public async saveItems(items: TodoItemCtx[]): Promise<TodoItemCtx[]> {
         await TodoService.delayMs(5000);
 
         const newItems: TodoItem[] = [];
-        const result: TodoItem[] = [];
+        const result: TodoItemCtx[] = [];
 
-        for (const item of items) {
-            if (item.id < 0) {
-                const created = Object.assign({}, item, { id: this._counter++ });
+        for (const itemCtx of items) {
+            if (itemCtx.model.id <= 0/**New Item*/) {
+                const created = Object.assign({}, itemCtx.model, { id: ++this._counter });
                 newItems.push(created);
-                result.push(created);
+                result.push({ctxId: itemCtx.ctxId, model: created });
             } else {
-                result.push(item);
-                const index = this._storage.findIndex(i => i.id === item.id);
+                result.push(itemCtx);
+                const index = this._storage.findIndex(i => i.id === itemCtx.model.id);
 
                 if (index >= 0) {
-                    this._storage[index] = item;
+                    this._storage[index] = itemCtx.model;
                 } else {
-                    newItems.push(item);
+                    newItems.push(itemCtx.model);
                 }
             }
         }
@@ -57,6 +57,11 @@ export class TodoService {
     private static delayMs(value: number): Promise<void> {
         return new Promise<void>((resolver) => setTimeout(() => resolver(), value));
     }
+}
+
+export type TodoItemCtx = {
+    readonly ctxId: number,
+    readonly model: TodoItem,
 }
 
 export type TodoItem = {

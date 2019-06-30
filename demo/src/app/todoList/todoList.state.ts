@@ -1,4 +1,4 @@
-import { TodoItem } from './TodoService';
+import { TodoItem, TodoItemCtx } from './TodoService';
 import { ItemViewModel } from "./ItemViewModel";
 import { With } from 'ng-set-state';
 
@@ -38,22 +38,41 @@ export class TodoListState
         }
     }
 
-    public withSavedItems(itemModels: TodoItem[]): Partial<TodoListState> | null {
-        if (this.itemsInProgress.length !== itemModels.length) {
-            throw new Error("Number of saved item do not equal number of saving items");
+    public withUpdatedItem(item: ItemViewModel, newModel: TodoItem | null): Partial<TodoListState> | null {
+
+        if (item.model === newModel) {
+            return null;
         }
 
-        const newItems = this.items.map(i => {
-            const modIndex = this.itemsInProgress.indexOf(i);
-            if (modIndex >= 0) {
-                return i.withModel(itemModels[modIndex], false);
-            }
-            return i;
-        });
+        const [newItems, changedItem, action] = TodoListState.getUpdatedItems(this.items, item, item.withModel(newModel, item.model !== newModel));
 
-        const [newChangedItemsQueue, newItemsInProgress] = this.changedItemsQueue.length > 0
-            ? [[], this.changedItemsQueue]
-            : [this.changedItemsQueue, []];
+        const newNewItem = action === "add" ? ItemViewModel.createNew() : this.newItem;
+
+        let newQueue = this.changedItemsQueue;
+        if (this.itemsInProgress.length > 0) {
+            newQueue = TodoListState.getQueueWithItem(newQueue, changedItem);
+        }
+
+        return {
+            items: newItems,
+            itemsInProgress: this.itemsInProgress.length < 1 ? [changedItem] : this.itemsInProgress,
+            newItem: newNewItem,
+            changedItemsQueue: newQueue,
+        }
+    }
+
+    public withSavedItems(itemModels: TodoItemCtx[]): Partial<TodoListState> | null {
+
+        const newItems = TodoListState.getUpdatedItemsByContextModels(this.items, itemModels);
+
+        let newChangedItemsQueue = TodoListState.getUpdatedItemsByContextModels(this.changedItemsQueue, itemModels);
+
+        let newItemsInProgress = this.itemsInProgress.filter(iip => itemModels.findIndex(si => si.ctxId === iip.vmId));
+
+        if (newItemsInProgress.length < 1 && this.changedItemsQueue.length > 0) {
+            newItemsInProgress = newChangedItemsQueue;
+            newChangedItemsQueue = [];
+        }
 
         return {
             items: newItems,
@@ -62,39 +81,14 @@ export class TodoListState
         };
     }
 
-    public withNewChangedItem(item: ItemViewModel, newModel: TodoItem | null): Partial<TodoListState> | null {
-
-        if (item.model === newModel) {
-            return null;
-        }
-
-        const [newItems, changedItem, action] = this.getUpdatedItems(item, item.withModel(newModel, item.model !== newModel));
-
-        const newNewItem = action === "add" ? ItemViewModel.createNew() : this.newItem;
-
-        if (this.itemsInProgress.length < 1) {
-            return {
-                items: newItems,
-                itemsInProgress: [changedItem],
-                newItem: newNewItem
-            }
-        } else {
-            return {
-                items: newItems,
-                changedItemsQueue: this.pushToQueue(changedItem),
-                newItem: newNewItem
-            }
-        }
-    }
-
-    private getUpdatedItems(currentItem: ItemViewModel, newItem: ItemViewModel): [ItemViewModel[], ItemViewModel, "update"|"add"|"delete"|"none"]  {
+    private static getUpdatedItems(items: ItemViewModel[], currentItem: ItemViewModel, newItem: ItemViewModel): [ItemViewModel[], ItemViewModel, "update"|"add"|"delete"|"none"]  {
         if (currentItem === newItem) {
-            return [this.items, newItem, "none"];
+            return [items, newItem, "none"];
         }
         let detected = 0;
         let action: "update" | "add" | "delete" = "update";
-        const result = this.items.reduce((acc, next) => {
-            if (next === currentItem) {
+        const result = items.reduce((acc, next) => {
+            if (next.vmId === currentItem.vmId) {
                 detected++;
                 if (newItem.model != null) {
                     acc.push(newItem);
@@ -119,11 +113,35 @@ export class TodoListState
         return [result, newItem, action];
     }
 
-    private pushToQueue(currentItem: ItemViewModel) {
-        if (this.changedItemsQueue.indexOf(currentItem) >= 0) {
-            return this.changedItemsQueue;
+    private static getUpdatedItemsByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[]): ItemViewModel[] {
+        let detect = false;
+        const result = items.map(i => {
+            const correspondingItem = contextModels.find(sItem => sItem.ctxId === i.vmId);
+            if (correspondingItem == null) {
+                return i;
+            }
+            detect = true;
+
+            if (i.model == null && i.previousModel != null) {
+                return i.withPreviousModel(correspondingItem.model);
+            }
+
+            return i.withModel(correspondingItem.model, false);
+        });
+
+
+        return detect ? result : items;
+    }
+
+    private static getQueueWithItem(changedItemsQueue: ItemViewModel[], currentItem: ItemViewModel) {
+        const queueItem = changedItemsQueue.find(i => i.vmId === currentItem.vmId);
+        if (queueItem != null) {
+            if (queueItem.model === currentItem.model) {
+                return changedItemsQueue;
+            }
+            return changedItemsQueue.map(i => i === queueItem ? currentItem : i);
         }
-        const newQueue = Object.assign([], this.changedItemsQueue);
+        const newQueue = Object.assign([], changedItemsQueue);
         newQueue.push(currentItem);
         return newQueue;
     }

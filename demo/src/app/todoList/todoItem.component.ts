@@ -31,12 +31,19 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
     public onCompleteClick(ev: Event) {
         ev.stopImmediatePropagation();
         ev.stopPropagation();
+        this.modifyStateDiff(this.state.withCompleted());
     }
 
     public onDeleteClick(ev: Event) {
         ev.stopImmediatePropagation();
         ev.stopPropagation();
         this.modifyState("isDeleted", true);
+    }
+
+    public onInputKeyDown(ke: KeyboardEvent) {
+        if (ke.keyCode === 13) {
+            this.modifyStateDiff(this.state.withEditEnd());
+        }
     }
 
     public isViewMode() {

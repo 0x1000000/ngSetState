@@ -1,4 +1,4 @@
-<div *ngIf="isViewMode()" class="l-text">
+<div *ngIf="isViewMode()" class="l-text" [class.l-text-completed]="state.item?.status">
     {{state.visibleText}}<span *ngIf="state.isDirty">*</span>
 </div>
 <div *ngIf="isEditMode()" class="l-input">
@@ -6,7 +6,8 @@
            type="text"
            [value]="state.editableText"
            (input)="modifyState('editableText', $event.target.value)"
-           (blur)="onEditBlur()">
+           (blur)="onEditBlur()"
+           (keydown)="onInputKeyDown($event)">
     <life-cycle (onInit)="onInputInit(input)"></life-cycle>
 </div>
 <div class="l-buttons" *ngIf="state.isButtonsVisible">
@@ -31,6 +32,9 @@
         }
     .l-text {
         flex: 1 1 auto;
+    }
+    .l-text-completed {
+        text-decoration: line-through;
     }
     .l-input {
         flex: 1 1 auto;
