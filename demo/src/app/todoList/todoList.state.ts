@@ -63,9 +63,9 @@ export class TodoListState
 
     public withSavedItems(itemModels: TodoItemCtx[]): Partial<TodoListState> | null {
 
-        const newItems = TodoListState.getUpdatedItemsByContextModels(this.items, itemModels);
+        let newChangedItemsQueue = TodoListState.getUpdatedQueueByContextModels(this.changedItemsQueue, itemModels);
 
-        let newChangedItemsQueue = TodoListState.getUpdatedItemsByContextModels(this.changedItemsQueue, itemModels);
+        const newItems = TodoListState.getUpdatedItemsByContextModels(this.items, itemModels, i=> newChangedItemsQueue.findIndex(ci=> ci.vmId === i.vmId) < 0);
 
         let newItemsInProgress = this.itemsInProgress.filter(iip => itemModels.findIndex(si => si.ctxId === iip.vmId));
 
@@ -113,11 +113,11 @@ export class TodoListState
         return [result, newItem, action];
     }
 
-    private static getUpdatedItemsByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[]): ItemViewModel[] {
+    private static getUpdatedItemsByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[], modifyPredicate: (vm: ItemViewModel)=>boolean): ItemViewModel[] {
         let detect = false;
         const result = items.map(i => {
             const correspondingItem = contextModels.find(sItem => sItem.ctxId === i.vmId);
-            if (correspondingItem == null) {
+            if (correspondingItem == null || (modifyPredicate != null && !modifyPredicate(i))) {
                 return i;
             }
             detect = true;
@@ -129,6 +129,20 @@ export class TodoListState
             return i.withModel(correspondingItem.model, false);
         });
 
+        return detect ? result : items;
+    }
+
+    private static getUpdatedQueueByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[]): ItemViewModel[] {
+        let detect = false;
+        const result = items.map(i => {
+            const correspondingItem = contextModels.find(sItem => sItem.ctxId === i.vmId);
+            if (correspondingItem == null) {
+                return i;
+            }
+            detect = true;
+
+            return i.withModelId(correspondingItem.model.id);
+        });
 
         return detect ? result : items;
     }

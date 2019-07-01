@@ -23,6 +23,16 @@ export class ItemViewModel {
         return new ItemViewModel(this.vmId, model, isDirty, this.model === model ? this.previousModel : this.model);
     }
 
+    public withModelId(modelId: number) {
+        if (this.model != null && this.model.id === modelId) {
+            return this;
+        }
+
+        const newModel: TodoItem = Object.assign({}, this.model, <Partial<TodoItem>>{ id: modelId });
+
+        return new ItemViewModel(this.vmId, newModel, this.isDirty, this.previousModel);
+    }
+
     public withPreviousModel(previousModel: TodoItem) {
         if (this.previousModel === previousModel) {
             return this;

@@ -7,7 +7,7 @@ export class TodoService {
     constructor() {
         this._storage = [
             { id: ++this._counter, name: "Item 1", priority: "normal", status: false },
-            { id: ++this._counter, name: "Item 3", priority: "low", status: false }
+            { id: ++this._counter, name: "Item 2", priority: "low", status: false }
         ];
     }
 
