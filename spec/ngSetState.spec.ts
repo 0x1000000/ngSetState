@@ -1,5 +1,5 @@
 ﻿import { SimpleChange, EventEmitter} from "@angular/core"
-import { With, WithStateBase, IWithState, In, Out } from "./../src/ngSetState";
+import { With, WithStateBase, IWithState, In, Out, Calc } from "./../src/ngSetState";
 import { } from "jasmine";
 
 describe('Tests', () => {
@@ -139,6 +139,17 @@ describe('Tests', () => {
         expect(() => component.modifyState("arr3", 1)).toThrow(new Error("Recursion overflow"));
         expect(component.state.arr3).toBe(0);
     });
+
+    it("Calc Properties", () => {
+        const component = new TestCalcProps();
+
+
+        component.modifyStateDiff({arg1: 3, arg2: 7});
+
+        expect(component.state.summ).toBe(10);
+        expect(component.state.sub).toBe(-4);
+        expect(component.state.summSub).toBe(6);
+    });
 });
 
 class TestComponent extends WithStateBase<TestState> {
@@ -253,4 +264,27 @@ class TestStateForCycles2 {
             arr3: currentSate.arr2+1
         }
     }
+}
+
+
+class TestCalcProps extends WithStateBase<TestCalcPropsSate> {
+    constructor() {
+        super(new TestCalcPropsSate(), [], []);
+    }
+}
+
+class TestCalcPropsSate {
+
+    public readonly arg1: number = 0;
+
+    public readonly arg2: number = 0;
+
+    @Calc(state => state.arg1 + state.arg2,"arg1", "arg2")
+    public readonly summ: number = 0;
+
+    @Calc(state => state.arg1 - state.arg2, "arg1", "arg2")
+    public readonly sub: number = 0;
+
+    @Calc(state => state.summ + state.sub, "summ", "sub")
+    public readonly summSub: number;
 }

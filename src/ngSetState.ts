@@ -108,6 +108,34 @@ export function Out<TState>(componentProp?: string): any {
     };
 }
 
+export function Calc<TState, Prop extends keyof TState>(func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop], ...propNames: (keyof TState)[]): any {
+    return (target: TState, propertyKey: Prop) => {
+        const stateMeta = Functions.ensureStateMeta(target);
+
+        const modifier: Modifier<TState> = (currentSate: TState, previousSate: TState, diff: Partial<TState>) => {
+            const res: Partial<TState> = {};
+            res[propertyKey] = func(currentSate, previousSate, diff);
+            return res;
+        };
+
+        for (const propName of propNames) {
+
+            let detect = false;
+            for (const m of stateMeta.modifiers) {
+
+                if (m.prop === propName) {
+                    m.fun.push(modifier);
+                    detect = true;
+                }
+            }
+
+            if (!detect) {
+                stateMeta.modifiers.push({ prop: propName, fun: [modifier] });
+            }
+        }
+    };
+}
+
 export function With<TState>(...propNames: (keyof TState)[]) {
 
     return (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
@@ -397,4 +425,4 @@ interface StateMeta<TState> {
     modifiers: { prop: (keyof TState), fun: Modifier<TState>[] }[];
 }
 
-type Modifier<TState> = (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState| null;
+type Modifier<TState> = (currentSate: TState, previousSate: TState, diff: Partial<TState>) => Partial<TState> | null;
