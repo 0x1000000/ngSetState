@@ -7,8 +7,9 @@ A library that helps developing angular components in a more functional style wh
 ## Table of Contents
 
 1. [Get Started](#get_satrted)
-2. [API](#api)
-3. [Explanation](#explanation)
+2. [Advantages of using the library](#advantages)
+3. [API](#api)
+4. [Explanation](#explanation)
 <a name="get_satrted"/>
 
 ## 1. Get Started
@@ -202,9 +203,17 @@ export class State {
 ```html
 <some-component [(property1)]="…"  (property2Change)="…$event…"></some-component>
 ```
+<a name="advantages"/>
+
+## 2. Advantages of using the library
+
+1. __Performance__ – the angular change detection will check only already evaluated properties 
+2. __Independence__ – the library does not actually depend on angular, so if you decided to move to another framework (e.g. Vue) you will be able to reuse your state logic
+3. __Quality of reusable components__ – Angular allows having several input parameters which can be changed independently and maintaining all possible combinations is usually not very simple (ngOnInit, ngOnChange, property setters), so often developers take into consideration just common scenarios, which is not great when you develop reusable components. The library naturally simplifies handling different combinations of input parameters, since it implicitly creates a dependency graph over all state properties.
+
 <a name="api"/>
 
-## 2. API
+## 3. API
 
 * ### IWithState:&lt;TState&gt; (WithStateBase)
    * **state: TState** - gets access to a current component state (can be used in markup);
@@ -268,7 +277,7 @@ export class State {
   ```
 <a name="explanation"/>
 
-## 3. Explanation
+## 4. Explanation
 The description of this library says it helps developing angular components in a more “functional” style so let’s figure out how exactly it helps. In short, the main principles of “functional” programming paradigm are: 
 * avoiding changing state and mutable data
 * “pure” functions (idempotent code parts with no side effects)
