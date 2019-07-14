@@ -108,7 +108,7 @@ export function Out<TState>(componentProp?: string): any {
     };
 }
 
-export function Calc<TState, Prop extends keyof TState>(func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop], ...propNames: (keyof TState)[]): any {
+export function Calc<TState, Prop extends keyof TState>(propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any {
     return (target: TState, propertyKey: Prop) => {
         const stateMeta = Functions.ensureStateMeta(target);
 

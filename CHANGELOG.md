@@ -1,3 +1,6 @@
+## 0.2.0
+* **@Calc** - new decorator which allows re-calculation of a single state property.  
+
 ## 0.1.2
 * **BUG FIX**: "During a serie of recursive updates some modifiers could be omit if a corresponding filed was changed in the middle of the serie"
 

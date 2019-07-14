@@ -279,12 +279,12 @@ class TestCalcPropsSate {
 
     public readonly arg2: number = 0;
 
-    @Calc(state => state.arg1 + state.arg2,"arg1", "arg2")
+    @Calc(["arg1", "arg2"], state => state.arg1 + state.arg2)
     public readonly summ: number = 0;
 
-    @Calc(state => state.arg1 - state.arg2, "arg1", "arg2")
+    @Calc(["arg1", "arg2"], state => state.arg1 - state.arg2)
     public readonly sub: number = 0;
 
-    @Calc(state => state.summ + state.sub, "summ", "sub")
+    @Calc(["summ", "sub"], state => state.summ + state.sub)
     public readonly summSub: number;
 }

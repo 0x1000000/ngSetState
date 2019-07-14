@@ -59,6 +59,23 @@ export class State {
     }
 }
 ```
+_Note: all property names specified inside __@With__ decorator are validated by TypeScript. If you specify a name of a not existing property you will get a compilation error._
+
+**Step 3 (alternative):** a “transformation” function can defined using __@Calc__ decorator under a state property. That approach is applicable when you need to update just a single property (unlike __@With__ decorator that allows changing several properties simultaneously) which depends on other state properties:
+
+```ts
+import { Calc } from "ng-set-state";
+
+export class State {
+    public readonly property1: string = "initial value";
+
+    @Calc(["property1"], (state: State) => "f(previousState)")
+    public readonly property2: string = "initial value";
+
+    @Calc(["property1", "property2"], (state: State) => "f(previousState)")
+    public readonly property3: string = "initial value";
+}
+```
 **Step 4:** Specify which state properties will be mapped to component inputs and which properties will be mapped to component outputs using In, Out decorators
 
 ```ts
@@ -273,8 +290,9 @@ export class State {
             someProperty3: currentState.someProperty1 + currentState.someProperty2,
         }
     }
-
   ```
+   * **Calc&lt;TState, Prop extends keyof TState&gt;((propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any** - The decorator is supposed to be defined under some state property. It specifies a function which will be called when one of the specified properties (__propNames__ array) have been changed (a state instance with updated properties will be a first argument for the function). A result of the function will be assigned to the property. 
+
 <a name="explanation"/>
 
 ## 4. Explanation
