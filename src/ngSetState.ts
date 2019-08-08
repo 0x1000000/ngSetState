@@ -12,7 +12,7 @@ export interface IWithState<TState> extends OnChanges {
 
 export abstract class WithStateBase<TState> implements IWithState<TState> {
 
-    constructor(initialState: TState, ngInputs: string[], ngOutputs: string[]) {
+    constructor(initialState: TState, ngInputs: string[] | null, ngOutputs: string[] | null) {
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta<TState>(initialState);
         stateMeta.stateConstructor = <Constructor<TState>>initialState.constructor;
         Functions.initialize(this, initialState, ngInputs, ngOutputs);
@@ -22,12 +22,12 @@ export abstract class WithStateBase<TState> implements IWithState<TState> {
 
     public state: TState;
 
-    public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): void {
-        Functions.modifyState(this, propName, value);
+    public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): boolean {
+        return Functions.modifyState(this, propName, value);
     }
 
-    public modifyStateDiff(diff: Partial<TState> | null) {
-        Functions.nextState(this, diff);
+    public modifyStateDiff(diff: Partial<TState> | null): boolean {
+        return Functions.nextState(this, diff);
     }
 
     public ngOnChanges(changes: SimpleChanges): void {
@@ -56,12 +56,12 @@ export function WithState<TState>(stateType: Constructor<TState>, ngInputs: stri
                 return initialState;
             })();
 
-            public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): void {
-                Functions.modifyState(this, propName, value);
+            public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): boolean {
+                return Functions.modifyState(this, propName, value);
             }
 
-            public modifyStateDiff(diff: Partial<TState> | null) {
-                Functions.nextState(this, diff);
+            public modifyStateDiff(diff: Partial<TState> | null): boolean {
+                return Functions.nextState(this, diff);
             }
 
             public ngOnChanges(changes: SimpleChanges): void {
@@ -166,7 +166,7 @@ export function With<TState>(...propNames: (keyof TState)[]) {
 
 class Functions {
 
-    public static initialize<TState>(component: IWithState<TState>, state: TState, ngInputs: string[], ngOutputs: string[]) {
+    public static initialize<TState>(component: IWithState<TState>, state: TState, ngInputs: string[] | null, ngOutputs: string[] | null) {
 
         if (component.state != null) {
             throw new Error("component should not have any initial state at this point");
@@ -179,25 +179,28 @@ class Functions {
 
         //CheckInputs
 
-        const inputCmp = Functions.compareArrays(stateMeta.inputs.map(i => i.componentProp), ngInputs);
+        if (ngInputs != null) {
+            const inputCmp = Functions.compareArrays(stateMeta.inputs.map(i => i.componentProp), ngInputs);
 
-        if (inputCmp.missedInArr1.length > 0) {
-            throw new Error("Could not find the following inputs in the state class: " + inputCmp.missedInArr1.join(","));
-        }
-        if (inputCmp.missedInArr2.length > 0) {
-            throw new Error("Could not find the following inputs in the component annotation: " + inputCmp.missedInArr2.join(","));
-        }
-
-        const outCmp = Functions.compareArrays(stateMeta.outputs.map(i => i.componentProp), ngOutputs);
-
-        if (outCmp.missedInArr1.length > 0) {
-            throw new Error("Could not find the following outputs in the state class: " + outCmp.missedInArr1.join(","));
-        }
-        if (outCmp.missedInArr2.length > 0) {
-            throw new Error("Could not find the following outputs in the component annotation: " + outCmp.missedInArr2.join(","));
+            if (inputCmp.missedInArr1.length > 0) {
+                throw new Error("Could not find the following inputs in the state class: " + inputCmp.missedInArr1.join(","));
+            }
+            if (inputCmp.missedInArr2.length > 0) {
+                throw new Error("Could not find the following inputs in the component annotation: " + inputCmp.missedInArr2.join(","));
+            }
         }
 
-        
+        if (ngOutputs != null) {
+            const outCmp = Functions.compareArrays(stateMeta.outputs.map(i => i.componentProp), ngOutputs);
+
+            if (outCmp.missedInArr1.length > 0) {
+                throw new Error("Could not find the following outputs in the state class: " + outCmp.missedInArr1.join(","));
+            }
+            if (outCmp.missedInArr2.length > 0) {
+                throw new Error("Could not find the following outputs in the component annotation: " + outCmp.missedInArr2.join(","));
+            }
+        }
+
         //Create component emitters
         for (const outputProp of stateMeta.outputs) {
             const emitterProp = outputProp.componentProp;
@@ -235,17 +238,18 @@ class Functions {
         }
     }
 
-    public static modifyState<TState, TK extends keyof TState>(component: IWithState<TState>, propName: TK, value: TState[TK]): void {
+    public static modifyState<TState, TK extends keyof TState>(component: IWithState<TState>, propName: TK, value: TState[TK]): boolean {
         if (component.state[propName] !== value) {
             const diff: Partial<TState> = {};
             diff[propName] = value;
-            Functions.nextState(component, diff);
+            return Functions.nextState(component, diff);
         }
+        return false;
     }
 
-    public static nextState<TState>(component: IWithState<TState>, diff: Partial<TState> | null): void {
+    public static nextState<TState>(component: IWithState<TState>, diff: Partial<TState> | null): boolean {
         if (diff == null) {
-            return;
+            return false;
         }
 
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
@@ -264,6 +268,9 @@ class Functions {
             if (component.onAfterStateApplied) {
                 component.onAfterStateApplied(previousState);
             }
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -397,12 +404,6 @@ class Functions {
         }
         return result;
     }
-
-    //private static ensureEmitterSuffix<TState>(outputProp: PropMeta<TState>): string {
-    //    return outputProp.componentProp !== outputProp.stateProp
-    //        ? outputProp.componentProp
-    //        : outputProp.componentProp + EMITTER_SUFFIX;
-    //}
 }
 
 const STATE_META = "__state_meta__";

@@ -42,19 +42,21 @@ describe('Tests', () => {
         (component).resultChange.subscribe((value) => result = value);
 
         //arg1 to 7
-        component.modifyState("arg1", 7);
+        expect(component.modifyState("arg1", 7)).toBe(true);
 
         //Assert result
         expect(result).toBe(7);
 
         //arg2 to 8
-        component.modifyState("arg2", 8);
+        expect(component.modifyState("arg2", 8)).toBe(true);
+        expect(component.modifyState("arg2", 8)).toBe(false);
 
         //Assert result
         expect(result).toBe(15);
 
         //arg2 to 10
-        component.modifyState("arg2", 10);
+        expect(component.modifyState("arg2", 10)).toBe(true);
+        expect(component.modifyState("arg2", 10)).toBe(false);
 
         //Assert result
         expect(result).toBe(17);
@@ -74,7 +76,7 @@ describe('Tests', () => {
         });
 
         //arg1 to 7
-        component.modifyStateDiff({arg1: 7});
+        expect(component.modifyStateDiff({arg1: 7})).toBe(true);
 
         //Assert result
         expect(result).toBe(7);
@@ -83,7 +85,7 @@ describe('Tests', () => {
         expect(component.previousState.arg1).toBe(0);
 
         //arg2 to 8, result to 0
-        component.modifyStateDiff({arg2: 8, result: 0});
+        expect(component.modifyStateDiff({arg2: 8, result: 0})).toBe(true);
         expect(component.previousState.arg2).toBe(0);
 
         //Assert result
@@ -92,7 +94,7 @@ describe('Tests', () => {
         expect(counter).toBe(2);
 
         //arg1 to 10, arg2 to 11
-        component.modifyStateDiff({arg1: 10, arg2: 11});
+        expect(component.modifyStateDiff({arg1: 10, arg2: 11})).toBe(true);
         expect(component.previousState.arg1).toBe(7);
         expect(component.previousState.arg2).toBe(8);
 
@@ -103,7 +105,8 @@ describe('Tests', () => {
         //arg1 to 10, arg2 to 11 (same)
 
         const prevState = component.state;
-        component.modifyStateDiff({arg1: 10, arg2: 11});
+        expect(component.modifyStateDiff({ arg1: 10, arg2: 11 })).toBe(false);
+
 
         //Assert result
         expect(result).toBe(21);
@@ -111,7 +114,7 @@ describe('Tests', () => {
         expect(component.state).toBe(prevState);
 
         //null
-        component.modifyStateDiff(null);
+        expect(component.modifyStateDiff(null)).toBe(false);
         expect(result).toBe(21);
         expect(counter).toBe(3);
     });

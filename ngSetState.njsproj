@@ -23,6 +23,7 @@
   <ItemGroup>
     <Content Include=".gitignore" />
     <Content Include=".npmignore" />
+    <Content Include="CHANGELOG.md" />
     <Content Include="jasmine.json" />
     <Content Include="LICENSE" />
     <Content Include="package.json" />

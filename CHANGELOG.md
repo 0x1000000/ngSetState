@@ -1,3 +1,8 @@
+## 0.2.1
+* **modifyState** - returns **true** if state change has been detected otherwise it returns **false**.
+* **modifyStateDiff** - returns **true** if state change has been detected otherwise it returns **false**.
+* **WithStateBase constructor** - the second and the third parameters are now optional.
+
 ## 0.2.0
 * **@Calc** - new decorator which allows re-calculation of a single state property.  
 
