@@ -153,6 +153,8 @@ export class SomeComponent implements IWithState<State> {
 
     public modifyState<TK extends keyof State>(propName: TK, value: State[TK]): void {}
 
+    public modifyStateDiff(diff: Partial<TState>|null): void {}
+
     public onAfterStateApplied?(): void {}
 }
 ```
@@ -231,12 +233,13 @@ export class State {
 <a name="api"/>
 
 ## 3. API
+* Classes
 
-* ### IWithState:&lt;TState&gt; (WithStateBase)
-   * **state: TState** - gets access to a current component state (can be used in markup);
-   * **modifyState(propName: keyof TState, value: any): void** - sets a new component state with a new state member value. Other state member will be also changed if they depend on the modified member (see, “With” decorator)
-   * **modifyStateDiff(diff: Partial&lt;TState&gt;|null): void** - sets a new component state with new state member values. Other state member will be also changed if they depend on the modified members (see, “With” directive)
-   * **onAfterStateApplied?()** - If this method is implemented, it will be called when the component has just moved to a new state. The method can be used to imitate an asynchronous operation (see “Asynchronous operations” (todo)).
+    * ### WithStateBase&lt;TState&gt; implements IWithState&lt;TState&gt;
+        * **state: TState** - gets access to a current component state (can be used in markup);
+        * **modifyState(propName: keyof TState, value: any): boolean** - sets a new component state with a new state member value. Other state member will be also changed if they depend on the modified member (see, “With” decorator). If no changes have been detected it will return **false** otherwise **true**.
+        * **modifyStateDiff(diff: Partial&lt;TState&gt;|null): boolean** - sets a new component state with new state member values. Other state member will be also changed if they depend on the modified members (see, “With” directive). If no changes have been detected it will return **false** otherwise **true**.
+        * **onAfterStateApplied?()** - If this method is implemented, it will be called when the component has just moved to a new state. The method can be used to imitate an asynchronous operation (see “Asynchronous operations” (todo)).
 * ### Decorators
   * **In&lt;TState&gt;(componentProp?: string)** - creates a mapping between some state property and some component input parameter. Changing the input parameter will lead to state modification. Example:
   ```ts
@@ -291,6 +294,20 @@ export class State {
         }
     }
   ```
+  You can also get access to a previous state (2-nd argument) and changes between a current sate and the previous one (3-rd argument)
+  ```ts
+    @With("someProperty1", "someProperty2",)
+    public static calc3(
+        currentState: SomeState, 
+        previousState: SomeState, 
+        changes: Partial<SomeState>): Partial<SomeState> | null {
+
+        return {
+            someProperty3: currentState.someProperty1 + currentState.someProperty2,
+        }
+    }
+  ```
+
    * **Calc&lt;TState, Prop extends keyof TState&gt;((propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any** - The decorator is supposed to be defined under some state property. It specifies a function which will be called when one of the specified properties (__propNames__ array) have been changed (a state instance with updated properties will be a first argument for the function). A result of the function will be assigned to the property. 
 
 <a name="explanation"/>

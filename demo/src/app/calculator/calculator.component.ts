@@ -12,9 +12,6 @@ import { StateStorageService } from "../StateStorageService";
     outputs: CalculatorState.ngOutputs
 })
 export class CalculatorComponent extends WithStateBase<CalculatorState> {
-
-    private static readonly  stateStorageKey = "calculatorDemo";
-
     constructor() {
         super(new CalculatorState(), CalculatorState.ngInputs, CalculatorState.ngOutputs);
     }
