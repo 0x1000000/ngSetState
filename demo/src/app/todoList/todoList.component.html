@@ -1,20 +1,18 @@
-<todo-item *ngFor="let item of state.items;trackBy: trackByFn"
-           [item]="item.model"
-           [isDirty]="item.isDirty"
-           (itemChange)="onItemChange(item, $event)"
-           (isDeletedChange)="onItemDeleted(item)">
-</todo-item>
-<todo-item [isNew]="true" (itemChange)="onItemChange(state.newItem, $event)">
+<ng-container *ngIf="!state.isLocked">
+    <todo-new-item (itemChange)="onItemAdded($event)">
 
-</todo-item>
-
-<div class="l-status" *ngIf="state.status">
-    <div class="spinner-border spinner-border-sm" role="status">
-        <span class="sr-only">Loading...</span>
-    </div>
-    <span>{{state.status}}</span>
-</div>
-
+    </todo-new-item>
+    <todo-item *ngFor="let item of state.items;trackBy: trackByFn"
+               [item]="item.model"
+               [syncMode]="item.syncMode"
+               (itemChange)="onItemChange(item, $event)"
+               (isDeletedChange)="onItemDeleted(item)">
+    </todo-item>
+    <span *ngIf="!state.isInit">Loading...</span>
+</ng-container>
+<ng-container *ngIf="state.isLocked">
+    Waiting...
+</ng-container>
 <style>
     todo-item {
         margin: 10px;

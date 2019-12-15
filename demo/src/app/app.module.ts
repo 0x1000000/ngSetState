@@ -7,6 +7,7 @@ import { CalculatorDemoComponent } from "./calculator/calculator-demo.component"
 import { CalculatorComponent } from "./calculator/calculator.component";
 import { TodoListComponent } from "./todoList/todoList.component";
 import { TodoItemComponent } from "./todoList/todoItem.component";
+import { TodoNewItemComponent } from "./todoList/todoNewItem.component";
 import { ControlsModule } from "./controls/controls.module";
 import { StateStorageService } from "./StateStorageService";
 import { TodoService } from "./todoList/TodoService";
@@ -17,7 +18,8 @@ import { TodoService } from "./todoList/TodoService";
         CalculatorComponent,
         CalculatorDemoComponent,
         TodoListComponent,
-        TodoItemComponent
+        TodoItemComponent,
+        TodoNewItemComponent
     ],
     imports: [
         BrowserModule,

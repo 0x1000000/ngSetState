@@ -47,6 +47,7 @@
     <Content Include="src\app\controls\tab-pane.component.html" />
     <Content Include="src\app\controls\tabs.component.html" />
     <Content Include="src\app\controls\radio-list.component.html" />
+    <Content Include="src\app\todoList\todoNewItem.component.html" />
     <Content Include="src\app\todoList\todoItem.component.html" />
     <Content Include="src\app\todoList\todoList.component.html">
       <SubType>Code</SubType>
@@ -85,6 +86,8 @@
     <TypeScriptCompile Include="src\app\controls\tabs.component.ts" />
     <TypeScriptCompile Include="src\app\StateStorageService.ts" />
     <TypeScriptCompile Include="src\app\todoList\ItemViewModel.ts" />
+    <TypeScriptCompile Include="src\app\todoList\todoNewItem.state.ts" />
+    <TypeScriptCompile Include="src\app\todoList\todoNewItem.component.ts" />
     <TypeScriptCompile Include="src\app\todoList\todoItem.component.ts" />
     <TypeScriptCompile Include="src\app\todoList\todoItem.state.ts" />
     <TypeScriptCompile Include="src\app\todoList\todoList.component.ts">

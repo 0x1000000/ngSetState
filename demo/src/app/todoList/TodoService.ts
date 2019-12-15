@@ -6,39 +6,37 @@ export class TodoService {
 
     constructor() {
         this._storage = [
-            { id: ++this._counter, name: "Item 1", priority: "normal", status: false },
-            { id: ++this._counter, name: "Item 2", priority: "low", status: false }
+            { id: ++this._counter, name: "Star ngSetState on GitHub", priority: "normal", status: false },
         ];
     }
 
     public async getItems(): Promise<TodoItem[]> {
-        await TodoService.delayMs(700);
+        await TodoService.delayMs(7000);
         return Array.from(this._storage);
     }
 
-    public async saveItems(items: TodoItemCtx[]): Promise<TodoItemCtx[]> {
+    public async saveItems(items: TodoItem[]): Promise<TodoItem[]> {
         await TodoService.delayMs(5000);
-
-        const newItems: TodoItem[] = [];
-        const result: TodoItemCtx[] = [];
-
-        for (const itemCtx of items) {
-            if (itemCtx.model.id <= 0/**New Item*/) {
-                const created = Object.assign({}, itemCtx.model, { id: ++this._counter });
-                newItems.push(created);
-                result.push({ctxId: itemCtx.ctxId, model: created });
+        const result: TodoItem[] = [];
+        if (Math.round(Math.random() * 5) === 1) {
+            throw new Error("Random error");
+        }
+        for (const updatedItem of items) {
+            if (updatedItem.id <= 0/**New Item*/) {
+                const created = Object.assign({}, updatedItem, { id: ++this._counter });
+                this._storage.push(created);
+                result.push(created);
             } else {
-                result.push(itemCtx);
-                const index = this._storage.findIndex(i => i.id === itemCtx.model.id);
+                result.push(updatedItem);
+                const index = this._storage.findIndex(i => i.id === updatedItem.id);
 
                 if (index >= 0) {
-                    this._storage[index] = itemCtx.model;
+                    this._storage[index] = Object.assign({}, updatedItem);
                 } else {
-                    newItems.push(itemCtx.model);
+                    throw new Error(`Item with ${updatedItem.id} does not exist in the storage`);
                 }
             }
         }
-        this._storage.push(...newItems);
         return result;
     }
 
@@ -57,11 +55,6 @@ export class TodoService {
     private static delayMs(value: number): Promise<void> {
         return new Promise<void>((resolver) => setTimeout(() => resolver(), value));
     }
-}
-
-export type TodoItemCtx = {
-    readonly ctxId: number,
-    readonly model: TodoItem,
 }
 
 export type TodoItem = {

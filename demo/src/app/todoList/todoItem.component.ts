@@ -17,7 +17,6 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
 
     @HostListener("click")
     public onHostClick() {
-        this.modifyStateDiff(this.state.withEditMode());
     }
 
     public onEditBlur() {
@@ -28,16 +27,28 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
         input.focus();
     }
 
+    public onEditClick(ev: Event) {
+        ev.stopImmediatePropagation();
+        ev.stopPropagation();
+        this.modifyStateDiff(this.state.withEditMode());
+    }
+    
     public onCompleteClick(ev: Event) {
         ev.stopImmediatePropagation();
         ev.stopPropagation();
-        this.modifyStateDiff(this.state.withCompleted());
+        this.modifyStateDiff(this.state.withCompleted());        
     }
 
     public onDeleteClick(ev: Event) {
         ev.stopImmediatePropagation();
         ev.stopPropagation();
         this.modifyState("isDeleted", true);
+    }
+
+    public onRefreshClick(ev: Event) {
+        ev.stopImmediatePropagation();
+        ev.stopPropagation();
+        this.modifyStateDiff(this.state.withRefresh());   
     }
 
     public onInputKeyDown(ke: KeyboardEvent) {

@@ -1,7 +1,7 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { TodoListState } from './todoList.state';
-import { TodoService, TodoItem, TodoItemCtx } from './TodoService';
+import { TodoService, TodoItem } from './TodoService';
 import { ItemViewModel } from "./ItemViewModel";
 import { StateStorageService } from "../StateStorageService";
 
@@ -9,41 +9,56 @@ import { StateStorageService } from "../StateStorageService";
     selector: 'todo-list',
     templateUrl: './todoList.component.html',
     inputs: TodoListState.ngInputs,
-    outputs: TodoListState.ngOutputs
+    outputs: TodoListState.ngOutputs,
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TodoListComponent extends WithStateBase<TodoListState> {
+export class TodoListComponent extends WithStateBase<TodoListState> implements OnDestroy {
 
     private static readonly storageKey = "todoListState";
 
+    private _isDestroyed: boolean = false;
+
     constructor(
         private readonly _stateStorage: StateStorageService,
-        private readonly _cd: ChangeDetectorRef,
-        private readonly _todoService: TodoService)
+        private readonly _changeDetector: ChangeDetectorRef,
+        todoService: TodoService)
     {
-        super(_stateStorage.getState(TodoListComponent.storageKey, () => new TodoListState()), TodoListState.ngInputs, TodoListState.ngOutputs);
+        super(_stateStorage.getState(TodoListComponent.storageKey, ()=>new TodoListState(todoService)), TodoListState.ngInputs, TodoListState.ngOutputs);
 
-        this.modifyState("loadRequest", "requested");
+        this._stateStorage.subscibe<TodoListState>(this,
+            TodoListComponent.storageKey,
+            (state) => {
+                if (state !== this.state) {
+                    this.modifyStateDiff(state);
+                }
+            });
     }
 
-    public onAfterStateApplied(previousState: TodoListState) {
-        if (this.state.loadRequest === "requested") {
-            this.loadItems();
+    async ngOnDestroy() {
+        this._isDestroyed = true;
+        this.modifyState("isLocked", true);//To prevent changes if there are some async operations not finished
+        this._stateStorage.release(this);
+        const stateBefore = this.state;
+        this._stateStorage.setState(TodoListComponent.storageKey, this.state);
+        try {
+            await this.whenAll();//Finish all async operations
         }
-
-        if (this.state.itemsInProgress.length > 0 && this.state.itemsInProgress !== previousState.itemsInProgress) {
-            this.saveItems();
+        finally {
+            this.modifyState("isLocked", false);
         }
-
-        if (!this.state.status) {
+        
+        if (stateBefore !== this.state) {
             this._stateStorage.setState(TodoListComponent.storageKey, this.state);
         }
-        if (this._cd) {
-            this._cd.markForCheck();
-        }
     }
+
 
     public onItemChange(currentViewModel: ItemViewModel, newItem: TodoItem) {
         this.modifyStateDiff(this.state.withUpdatedItem(currentViewModel, newItem));
+    }
+
+    public onItemAdded(newItem: TodoItem) {
+        this.modifyStateDiff(this.state.withAddedItem(newItem));
     }
 
     public onItemDeleted(currentViewModel: ItemViewModel) {
@@ -54,27 +69,9 @@ export class TodoListComponent extends WithStateBase<TodoListState> {
         return item.vmId;
     }
 
-    private async loadItems(): Promise<void> {
-        this.modifyState("loadRequest", "inProgress");
-        const items = await this._todoService.getItems();
-        this.modifyStateDiff(this.state.withLoadedItems(items));
-    }
-
-    private async saveItems(): Promise<void> {
-        const changedModels: TodoItemCtx[] = this.state.itemsInProgress.filter(i => i.model != null)
-            .map(i => ({ ctxId: i.vmId, model: (i.model as TodoItem) }));
-        const toDelete = this.state.itemsInProgress.filter(i => i.model == null)
-            .map(i => ({ ctxId: i.vmId, model: i.previousModel as TodoItem }));
-
-        if (changedModels.length > 0) {
-            const result = await this._todoService.saveItems(changedModels);
-            this.modifyStateDiff(this.state.withSavedItems(result));
-        }
-
-        if (toDelete.length > 0) {
-            await this._todoService.deleteItems(toDelete.map(i=>i.model));
-            this.modifyStateDiff(this.state.withSavedItems(toDelete));
+    public onAfterStateApplied?(previousState?: TodoListComponent): void {
+        if (!this._isDestroyed) {
+            this._changeDetector.detectChanges();
         }
     }
-    
 }

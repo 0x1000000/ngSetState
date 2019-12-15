@@ -1,5 +1,6 @@
 import { TodoItem } from './TodoService';
 import { In, Out, With } from "ng-set-state";
+import { SyncMode } from './ItemViewModel';
 
 export type Mode = "view" | "edit";
 
@@ -7,7 +8,7 @@ export class TodoItemState
 {
     private static readonly newItemText = "Add a new task";
 
-    public static readonly ngInputs: string[] = ["item", "isNew", "isDirty"];
+    public static readonly ngInputs: string[] = ["item", "syncMode"];
 
     public static readonly ngOutputs: string[] = ["itemChange", "isDeletedChange"];
 
@@ -18,10 +19,7 @@ export class TodoItemState
     public readonly mode: Mode = "view";
 
     @In()
-    public readonly isNew: boolean = false;
-
-    @In()
-    public readonly isDirty: boolean = false;
+    public readonly syncMode: SyncMode | null = null;
 
     @Out()
     public readonly isDeleted: boolean = false;
@@ -32,10 +30,20 @@ export class TodoItemState
 
     public readonly visibleText: string = TodoItemState.newItemText;
 
-    @With("isNew", "mode", "isDeleted")
+    public readonly isCloudIndicatorVisible: boolean = false;
+
+    public readonly isClockIndicatorVisible: boolean = false;
+
+    public readonly isEditVisible: boolean = true;
+
+    public readonly isDeleteVisible: boolean = true;
+
+    public readonly isRefreshVisible: boolean = false;
+
+    @With("mode", "isDeleted")
     public static calcIsButtonsVisible(currentState: TodoItemState): Partial<TodoItemState> | null {
         return {
-            isButtonsVisible: !currentState.isNew && currentState.mode !== "edit" && !currentState.isDeleted
+            isButtonsVisible: currentState.mode !== "edit" && !currentState.isDeleted
         }
     }
 
@@ -44,25 +52,19 @@ export class TodoItemState
         if (currentState.item == null) {
             throw new Error("item cannot be null here");
         }
-
-        if (!currentState.isNew) {
-            return {
-                visibleText: currentState.item.name,
-            };
-        }
-        return null;
-    }
-
-    @With("isNew")
-    public static onIsNewChange(currentState: TodoItemState): Partial<TodoItemState> | null {
-
-        if (currentState.isNew) {
-            return {
-                visibleText: TodoItemState.newItemText,
-            }
-        }
         return {
-            visibleText: currentState.item != null ? currentState.item.name : "",
+            visibleText: currentState.item.name,
+        };
+    }
+    
+    @With("syncMode")
+    public static onSuncModeChange(currentState: TodoItemState): Partial<TodoItemState> | null {
+        return {
+            isCloudIndicatorVisible: currentState.syncMode === "active",
+            isClockIndicatorVisible: currentState.syncMode === "pending",
+            isEditVisible: currentState.syncMode !== "error",
+            isDeleteVisible: currentState.syncMode !== "error",
+            isRefreshVisible: currentState.syncMode === "error",
         }
     }
 
@@ -70,42 +72,29 @@ export class TodoItemState
         if (this.isDeleted) {
             return null;
         }
-        if (this.mode === "view" && !this.isNew) {
+        if (this.mode === "view") {
             if (this.item === null) {
                 throw new Error("Inconsistent state. item cannot be 'new' here");
             }
             return { mode: "edit", editableText: this.item.name };
-        }
-        if (this.mode === "view" && this.isNew) {
-            return { mode: "edit", editableText: "" };
         }
         return null;
     }
 
     public withEditEnd(): Partial<TodoItemState> | null {
         if (this.mode === "edit") {
-            if (this.isNew) {
-                if (this.editableText) {
-                    return {
-                        mode: "view",
-                        item: { id: 0, name: this.editableText, priority: "normal", status: false },
-                        editableText: ""
-                    };
-                }
-            } else {
-
-                if (this.item === null) {
-                    throw new Error("Inconsistent state. item cannot be 'new' here");
-                }
-
-                if (this.editableText && this.editableText !== this.item.name) {
-                    return {
-                        mode: "view",
-                        item: Object.assign({}, this.item, { name: this.editableText })
-                    };
-                }
-
+          
+            if (this.item === null) {
+                throw new Error("Inconsistent state. item cannot be 'new' here");
             }
+
+            if (this.editableText && this.editableText !== this.item.name) {
+                return {
+                    mode: "view",
+                    item: Object.assign({}, this.item, { name: this.editableText })
+                };
+            }
+            
             return {
                 mode: "view"
             };
@@ -114,10 +103,18 @@ export class TodoItemState
     }
 
     public withCompleted(): Partial<TodoItemState> | null {
-        if (this.item == null || this.item.status) {
+        if (this.item == null || this.isDeleted) {
             return null;
         }
 
-        return { item: Object.assign({}, this.item, { status: true }) };
+        return { item: Object.assign({}, this.item, { status: !this.item.status }) };
+    }
+
+    public withRefresh(): Partial<TodoItemState> | null {
+        if (this.item == null || this.isDeleted) {
+            return null;
+        }
+
+        return { item: Object.assign({}, this.item) };
     }
 }
