@@ -2,11 +2,13 @@
 
 ## About
 
-A library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.
+A library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.
 
 ## Table of Contents
 
 1. [Get Started](#get_satrted)
+  
+    1.1 [Get Started with asynchronous transitions](#get_satrted_async)
 2. [Advantages of using the library](#advantages)
 3. [API](#api)
 4. [Explanation](#explanation)
@@ -32,7 +34,7 @@ export class State {
 }
 ```
 
-**Step 3:** Define “transformation” functions which will be called when any of specified parameters (in “With” decorator) have just changed. The functions should return a difference object which will used to create a new component state.
+**Step 3:** Define “transition” functions which will be called when any of specified parameters (in “With” decorator) have just changed. The functions should return a difference object which will used to create a new component state.
 
 ```ts
 import { With } from "ng-set-state";
@@ -222,6 +224,106 @@ export class State {
 ```html
 <some-component [(property1)]="…"  (property2Change)="…$event…"></some-component>
 ```
+<a name="get_satrted_async"/>
+
+### 1.1 Get Started with asynchronous transitions
+
+**Step 1:** Add asynchronous services into your state.
+```ts
+export class State {
+    constructor(public readonly dataService: DataService){}
+
+    public readonly data: string | null = null;
+}
+```
+**Step 2:** (Optional) add asynchronous initialization method (marked with decorator @AsyncInit()):
+```ts
+import { AsyncInit } from 'ng-set-state';
+
+export class State {
+    constructor(public readonly dataService: DataService){}
+
+    public readonly data: string | null = null;
+
+    @AsyncInit()
+    public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+        const initialState: State = getState();
+        const data = await initialState.getData();
+        return {data: data};
+    }
+}
+```
+The method receives a function which returns a current component sate. The method should return a promise with a state update (Partial of State) or null.
+
+**Step 3:** Add asynchronous transition function (marked with decorator __@WithAsync(__*state fields*__)__) which will be called when some of specified fields have been changed:
+```ts
+import { AsyncInit, WithAsync } from 'ng-set-state';
+
+export class State {
+    constructor(public readonly dataService: DataService){}
+
+    public readonly data: string | null = null;
+
+    @AsyncInit()
+    public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+        const initialState: State = getState();
+        const data = await initialState.getData();
+        return {data: data};
+    }
+
+    @WithAsync("data")
+    public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+        const initialState: State = getState();
+        await initialState.save(initialState.data);
+        return null;
+    }
+}
+```
+Optionally, you can specify a behavior in a situation when the same transition function is concurrently called:
+```ts
+    @WithAsync("data").OnConcurrentLaunchPutAfter()//Default
+
+    @WithAsync("data").OnConcurrentLaunchReplace()
+
+    @WithAsync("data").OnConcurrentLaunchPutAfter()
+
+    @WithAsync("data").OnConcurrentLaunchCancel()
+```
+Optionally, you can specify a behavior in a situation when transition function throws an unhandled error:
+```ts
+    @WithAsync("data").OnErrorCall((getCurrentState:()=>State)=>Partial<State>|null)
+
+    @WithAsync("data").OnErrorForget()
+    
+    @WithAsync("data").OnErrorThrow()//Default
+```
+
+**Step 4** (Optional) You can specify asynchronous locks ids:
+```ts
+import { AsyncInit, WithAsync } from 'ng-set-state';
+
+export class State {
+    constructor(public readonly dataService: DataService){}
+
+    public readonly data: string | null = null;
+
+    @AsyncInit().Locks("init")
+    public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+        const initialState: State = getState();
+        const data = await initialState.getData();
+        return {data: data};
+    }
+
+    @WithAsync("data").Locks("init")
+    public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+        const initialState: State = getState();
+        await initialState.save(initialState.data);
+        return null;
+    }
+}
+```
+Locks prevent concurrent launching
+
 <a name="advantages"/>
 
 ## 2. Advantages of using the library
@@ -240,6 +342,7 @@ export class State {
         * **modifyState(propName: keyof TState, value: any): boolean** - sets a new component state with a new state member value. Other state member will be also changed if they depend on the modified member (see, “With” decorator). If no changes have been detected it will return **false** otherwise **true**.
         * **modifyStateDiff(diff: Partial&lt;TState&gt;|null): boolean** - sets a new component state with new state member values. Other state member will be also changed if they depend on the modified members (see, “With” directive). If no changes have been detected it will return **false** otherwise **true**.
         * **onAfterStateApplied?()** - If this method is implemented, it will be called when the component has just moved to a new state. The method can be used to imitate an asynchronous operation (see “Asynchronous operations” (todo)).
+        * **whenAll(): Promise<any>** - Returns a promise which will be resolved when all asynchronous operations finish
 * ### Decorators
   * **In&lt;TState&gt;(componentProp?: string)** - creates a mapping between some state property and some component input parameter. Changing the input parameter will lead to state modification. Example:
   ```ts
@@ -308,7 +411,37 @@ export class State {
     }
   ```
 
-   * **Calc&lt;TState, Prop extends keyof TState&gt;((propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any** - The decorator is supposed to be defined under some state property. It specifies a function which will be called when one of the specified properties (__propNames__ array) have been changed (a state instance with updated properties will be a first argument for the function). A result of the function will be assigned to the property. 
+   * **Calc&lt;TState, Prop extends keyof TState&gt;((propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any** - The decorator is supposed to be defined under some state property. It specifies a function which will be called when one of the specified properties (__propNames__ array) have been changed (a state instance with updated properties will be a first argument for the function). A result of the function will be 
+   assigned to the property. 
+   * **AsyncInit&lt;TState&gt;()** - marks an asynchronous methods which will be called when a component created:
+   ```ts
+        @AsyncInit().Locks("init")
+        public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+            const initialState: State = getState();
+            const data = await initialState.getData();
+            return {data: data};
+        }
+    ```   
+
+   * **WithAsync&lt;TState&gt;(...propNames: (keyof TState)[])** - similar to __@Width(...)__ but this decorator marks an asynchronous function which returns a promise to state change. The function receives a function as a parameter (instead of an object) which returns a current state:
+   ```ts
+        @WithAsync("data")
+        public static async init(getState: ()=> State): Promise<Partial<State|null>>{
+            const initialState: State = getState();
+            await initialState.save(initialState.data);
+            return null;
+        }
+    ```
+    
+    the decorator has the following modifiers:
+    * OnConcurrentLaunchCancel()
+    * OnConcurrentLaunchPutAfter()
+    * OnConcurrentLaunchReplace()
+    * OnConcurrentLaunchConcurrent()
+    * OnErrorThrow()
+    * OnErrorForget()
+    * OnErrorCall(method: (currentState: TState, error: any) => Partial<TState> | null)
+    * Locks(...lockIds: string[])
 
 <a name="explanation"/>
 

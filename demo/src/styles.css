@@ -54,3 +54,12 @@ body {
     -ms-user-select: none;
     user-select: none;
 }
+
+
+.icon{
+    height: 30px;
+    width: 30px;
+}
+    .icon.icon-inactive {
+        fill: #d3d3d3
+    }

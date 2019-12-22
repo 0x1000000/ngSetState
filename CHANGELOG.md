@@ -1,3 +1,7 @@
+## 1.0.0
+* Asynchronous state mutators: @WithAsync(...), @AsyncInit()
+* **BREAKING CHANGE**: All components that use @WithState decorator have to change result type of "modifyStateDiff" and "modifyState" methods from __void__ to __boolean__
+
 ## 0.2.1
 * **modifyState** - returns **true** if state change has been detected otherwise it returns **false**.
 * **modifyStateDiff** - returns **true** if state change has been detected otherwise it returns **false**.
@@ -15,7 +19,7 @@
 ## 0.1.0
 * **modifyStateDiff** - a new API method that allows modification of several state members at once;
 * **onAfterStateApplied** - can receive a previous state as an argument;
-* **BREAKING CHANGE**: All components that use @WithState decorator have to implement the new method "modifyStateDiff"/
+* **BREAKING CHANGE**: All components that use @WithState decorator have to implement the new method "modifyStateDiff"
 ## 0.0.2
 * Update documnetation
 * **"module":"commonjs"** - now the library can be used with system.js

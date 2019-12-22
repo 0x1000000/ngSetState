@@ -1,6 +1,12 @@
-import { TodoItem, TodoItemCtx } from './TodoService';
+import { TodoItem, TodoService } from './TodoService';
 import { ItemViewModel } from "./ItemViewModel";
-import { With } from 'ng-set-state';
+import { With, WithAsync, AsyncInit } from 'ng-set-state';
+
+export type NewState = Partial<TodoListState>|null
+
+type UpdateQueueItem = { readonly currentViewModel: ItemViewModel, newModel: TodoItem | null };
+
+type ItemUpdate<T> = { readonly oldValue: T, readonly newValue: T };
 
 export class TodoListState
 {
@@ -8,155 +14,211 @@ export class TodoListState
 
     public static readonly ngOutputs: string[] = [];
 
-    public readonly newItem = ItemViewModel.createNew();
-
     public readonly items: ItemViewModel[] = [];
 
-    public readonly changedItemsQueue: ItemViewModel[] = [];
+    public readonly updateQueue: UpdateQueueItem[] = [];
 
-    public readonly itemsInProgress: ItemViewModel[] = [];
+    public readonly inAction: UpdateQueueItem[] = [];
 
-    public readonly loadRequest: "requested" | "inProgress" | "done" = "done";
+    public readonly isLocked: boolean = false;//Previous async operation is not done
 
-    public readonly status: string = "";
+    public readonly isInit: boolean = false;//Prevent init on state restore
 
-    @With("loadRequest", "itemsInProgress")
-    public static calcStatus(currentState: TodoListState): Partial<TodoListState> | null {
-        if (currentState.loadRequest === "inProgress") {
-            return { status: "Requesting new items" };
-        }
-        if (currentState.itemsInProgress.length > 0) {
-            return { status: `Saving ${currentState.itemsInProgress.length} item(s)` }
-        }
-        return !currentState.status ? null : {status: ""};
-    }
+    constructor(public readonly todoService: TodoService) { }
 
-    public withLoadedItems(itemModels: TodoItem[]): Partial<TodoListState> | null {
+    public withAddedItem(newModel: TodoItem) {
+
+        const newViewModel = ItemViewModel.createNew(newModel);
+
+        const newUpdateQueue = add(this.updateQueue, { currentViewModel: newViewModel, newModel: newModel });
+        const newItems = head(this.items, newViewModel);
+
         return {
-            items: itemModels.map(im => ItemViewModel.createExisting(im)),
-            loadRequest: "done"
-        }
+            updateQueue: newUpdateQueue,
+            items: newItems
+        };
+
     }
 
-    public withUpdatedItem(item: ItemViewModel, newModel: TodoItem | null): Partial<TodoListState> | null {
-
-        if (item.model === newModel) {
+    public withUpdatedItem(currentViewModel: ItemViewModel, newModel: TodoItem | null): NewState {
+        if (currentViewModel.model === newModel) {
             return null;
         }
 
-        const [newItems, changedItem, action] = TodoListState.getUpdatedItems(this.items, item, item.withModel(newModel, item.model !== newModel));
+        const newViewModel = newModel ? currentViewModel.withModel(newModel, "pending") : currentViewModel;
 
-        const newNewItem = action === "add" ? ItemViewModel.createNew() : this.newItem;
+        const newUpdateQueue = addOrUpdate(this.updateQueue, { currentViewModel: newViewModel, newModel: newModel }, (x, y) => vmComparer(x.currentViewModel, y.currentViewModel));
 
-        let newQueue = this.changedItemsQueue;
-        if (this.itemsInProgress.length > 0) {
-            newQueue = TodoListState.getQueueWithItem(newQueue, changedItem);
-        }
+        const newItems = newModel ? update(this.items, [{ oldValue: currentViewModel, newValue: newViewModel }], vmComparer) : this.items;
 
         return {
-            items: newItems,
-            itemsInProgress: this.itemsInProgress.length < 1 ? [changedItem] : this.itemsInProgress,
-            newItem: newNewItem,
-            changedItemsQueue: newQueue,
-        }
-    }
-
-    public withSavedItems(itemModels: TodoItemCtx[]): Partial<TodoListState> | null {
-
-        let newChangedItemsQueue = TodoListState.getUpdatedQueueByContextModels(this.changedItemsQueue, itemModels);
-
-        const newItems = TodoListState.getUpdatedItemsByContextModels(this.items, itemModels, i=> newChangedItemsQueue.findIndex(ci=> ci.vmId === i.vmId) < 0);
-
-        let newItemsInProgress = this.itemsInProgress.filter(iip => itemModels.findIndex(si => si.ctxId === iip.vmId));
-
-        if (newItemsInProgress.length < 1 && this.changedItemsQueue.length > 0) {
-            newItemsInProgress = newChangedItemsQueue;
-            newChangedItemsQueue = [];
-        }
-
-        return {
-            items: newItems,
-            itemsInProgress: newItemsInProgress,
-            changedItemsQueue: newChangedItemsQueue
+            updateQueue: newUpdateQueue,
+            items: newItems
         };
     }
 
-    private static getUpdatedItems(items: ItemViewModel[], currentItem: ItemViewModel, newItem: ItemViewModel): [ItemViewModel[], ItemViewModel, "update"|"add"|"delete"|"none"]  {
-        if (currentItem === newItem) {
-            return [items, newItem, "none"];
+    @AsyncInit().Locks("init")
+    public static async init(getState: () => TodoListState): Promise<NewState> {
+        const state = getState();
+        if (state.isInit) {
+            return null;
         }
-        let detected = 0;
-        let action: "update" | "add" | "delete" = "update";
-        const result = items.reduce((acc, next) => {
-            if (next.vmId === currentItem.vmId) {
-                detected++;
-                if (newItem.model != null) {
-                    acc.push(newItem);
-                    action = "update";
-                } else {
-                    action = "delete";
+        let serverModels = await getState().todoService.getItems();
+
+        serverModels = serverModels.reverse();
+
+        const stateAfter = getState();//Some new items could be added
+
+        return { items: add(stateAfter.items, serverModels.map(i => ItemViewModel.createExisting(i))), isInit: true };
+    }
+
+    @With("updateQueue")
+    public static onUpdateQueue(currentSate: TodoListState): NewState {
+
+        if (currentSate.updateQueue.length > 0 && currentSate.inAction.length < 1) {
+            return TodoListState.setInAction(currentSate.updateQueue, currentSate.items);
+        }
+        return null;
+    }
+
+    @WithAsync("inAction").Locks("init").OnErrorCall(TodoListState.onSaveError)
+    public static async save(getState: () => TodoListState): Promise<NewState> {
+        const state = getState();
+        const inAction = state.inAction;
+
+        if (inAction.length > 0) {
+
+            const toUpdate = inAction.filter(i => i.newModel != null);
+            const toDelete = inAction.filter(i => i.newModel == null).map(i=>i.currentViewModel);
+
+            let updates: { oldValue: ItemViewModel; newValue: ItemViewModel }[] = [];
+
+            if (toUpdate.length > 0) {
+                const saved = await state.todoService.saveItems(toUpdate.map(i => i.newModel!));
+                if (saved.length !== toUpdate.length) {
+                    throw new Error("Error");
                 }
-            } else {
-                acc.push(next);
-            }
-            return acc;
-        }, [] as ItemViewModel[]);
 
-        if (detected > 1) {
-            throw new Error(`The items was found "${detected}" times`);
+                updates = toUpdate.map((old, index) =>
+                    ({
+                        oldValue: old.currentViewModel,
+                        newValue: old.currentViewModel.withModel(saved[index], "saved")
+                    }));
+            }
+
+            if (toDelete.length > 0) {
+                await state.todoService.deleteItems(toDelete.map(i=>i.model));
+            }
+
+            const stateAfter = getState();
+
+            let newItems = del(stateAfter.items, toDelete, vmComparer);
+            newItems = update(newItems, updates, vmComparer);
+
+            return TodoListState.setInAction(stateAfter.updateQueue, newItems);
         }
-        if (detected === 0) {
-            action = "add";
-            result.push(newItem);
+        return null;
+    }
+
+    private static onSaveError(state: TodoListState, error: any): Partial<NewState> {
+        
+        let result = TodoListState.setInAction(state.updateQueue, state.items);
+
+        if (result != null && result.inAction != null && result.items != null) {
+
+            const mod = state.inAction.map(ia => ({ oldValue: ia.currentViewModel, newValue: ia.currentViewModel.withsyncMode("error") }));
+
+            result = Object.assign(result, <Partial<TodoListState>>{ items: update(result.items, mod, vmComparer) });
         }
 
-        return [result, newItem, action];
+        return result;
     }
 
-    private static getUpdatedItemsByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[], modifyPredicate: (vm: ItemViewModel)=>boolean): ItemViewModel[] {
-        let detect = false;
-        const result = items.map(i => {
-            const correspondingItem = contextModels.find(sItem => sItem.ctxId === i.vmId);
-            if (correspondingItem == null || (modifyPredicate != null && !modifyPredicate(i))) {
-                return i;
+    private static setInAction(queue: UpdateQueueItem[], items: ItemViewModel[]): NewState {
+        if (queue.length < 1) {
+            return {
+                items: items,
+                inAction: [],
+                updateQueue: queue
             }
-            detect = true;
-
-            if (i.model == null && i.previousModel != null) {
-                return i.withPreviousModel(correspondingItem.model);
-            }
-
-            return i.withModel(correspondingItem.model, false);
-        });
-
-        return detect ? result : items;
-    }
-
-    private static getUpdatedQueueByContextModels(items: ItemViewModel[], contextModels: TodoItemCtx[]): ItemViewModel[] {
-        let detect = false;
-        const result = items.map(i => {
-            const correspondingItem = contextModels.find(sItem => sItem.ctxId === i.vmId);
-            if (correspondingItem == null) {
-                return i;
-            }
-            detect = true;
-
-            return i.withModelId(correspondingItem.model.id);
-        });
-
-        return detect ? result : items;
-    }
-
-    private static getQueueWithItem(changedItemsQueue: ItemViewModel[], currentItem: ItemViewModel) {
-        const queueItem = changedItemsQueue.find(i => i.vmId === currentItem.vmId);
-        if (queueItem != null) {
-            if (queueItem.model === currentItem.model) {
-                return changedItemsQueue;
-            }
-            return changedItemsQueue.map(i => i === queueItem ? currentItem : i);
         }
-        const newQueue = Object.assign([], changedItemsQueue);
-        newQueue.push(currentItem);
-        return newQueue;
+
+        const activeList = queue.map(q => ({ currentViewModel: q.currentViewModel.withsyncMode("active"), newModel: q.newModel }));
+
+        const itemsUpdate = queue.map((q, i) => ({ oldValue: q.currentViewModel, newValue: activeList[i].currentViewModel }));
+
+        items = update(items, itemsUpdate, vmComparer);
+
+        return {
+            inAction: activeList,
+            items: items,
+            updateQueue: []
+        }
     }
+}
+
+function vmComparer(x: ItemViewModel, y: ItemViewModel): boolean {
+    return x.vmId === y.vmId;
+}
+
+function head<T>(source: T[], newItems: T): T[] {
+    const result = [newItems];
+
+    result.push(...source);
+
+    return result;
+}
+
+function add<T>(source: T[], newItem: T| T[]): T[] {
+    const result = Object.assign([], source);
+    if (Array.isArray(newItem)) {
+        result.push(...newItem);
+    }
+    else {
+        result.push(newItem);
+    }
+    
+    return result;
+}
+
+function addOrUpdate<T>(source: T[], newItem: T, comparer: (x: T, y: T) => boolean): T[] {
+    const result: T[] = Object.assign([], source);
+
+    const index = result.findIndex(i => comparer(i, newItem));
+
+    if (index < 0) {
+        result.push(newItem);
+    } else {
+        result[index] = newItem;
+    }
+
+    return result;
+}
+
+
+function update<T>(source: T[], update: ItemUpdate<T>[], comparer: (x: T, y: T) => boolean): T[] {
+    if (update == null || update.length < 1) {
+        return source;
+    }
+
+    const result: T[] = Object.assign([], source);
+    for (const newItem of update) {
+        const index = result.findIndex(i=> comparer(i, newItem.oldValue));
+
+        if (index < 0) {
+            throw new Error("Could not find old element");
+        } else {
+            result[index] = newItem.newValue;
+        }
+    }
+    return result;
+}
+
+
+function del<T>(source: T[], toDelete: T[], comparer: (x: T, y: T) => boolean): T[] {
+    if (toDelete == null || toDelete.length < 1 || source == null || source.length < 1) {
+        return source;
+    }
+
+    return source.filter(s => toDelete.findIndex(d => comparer(s, d)) < 0);
 }

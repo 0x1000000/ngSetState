@@ -1,18 +1,5 @@
-<div class="l-buttons" *ngIf="state.isButtonsVisible">
-    <button *ngIf="state.item?.status" class="btn" type="submit" (click)="onCompleteClick($event)">
-        <svg class="icon">
-            <use xlink:href="#icon-checkbox-outline"></use>
-        </svg>
-    </button>
-    <button *ngIf="!state.item?.status" class="btn" type="submit" (click)="onCompleteClick($event)">
-        <svg class="icon">
-            <use xlink:href="#icon-square-outline"></use>
-        </svg>
-    </button>
-</div>
-
-<div *ngIf="isViewMode()" class="l-text" [class.l-text-completed]="state.item?.status" [class.l-text-error]="state.syncMode === 'error'" (click)="onCompleteClick($event)">
-    {{state.visibleText}}
+<div *ngIf="isViewMode()" class="l-text" [class.l-text-completed]="state.item?.status">
+    Add a new task
 </div>
 <div *ngIf="isEditMode()" class="l-input">
     <input #input
@@ -22,30 +9,6 @@
            (blur)="onEditBlur()"
            (keydown)="onInputKeyDown($event)">
     <life-cycle (onInit)="onInputInit(input)"></life-cycle>
-</div>
-<div class="l-buttons" *ngIf="state.isButtonsVisible">
-    <svg class="icon animate-flicker" *ngIf="state.isCloudIndicatorVisible">
-        <use xlink:href="#icon-cloud-upload"></use>
-    </svg>
-    <svg class="icon icon-inactive" *ngIf="state.isClockIndicatorVisible">
-        <use xlink:href="#icon-cloud-upload"></use>
-    </svg>
-
-    <button class="btn" type="submit" *ngIf="state.isEditVisible" (click)="onEditClick($event)">
-        <svg class="icon">
-            <use xlink:href="#icon-edit"></use>
-        </svg>
-    </button>
-    <button class="btn" type="submit" (click)="onDeleteClick($event)" *ngIf="state.isDeleteVisible">
-        <svg class="icon">
-            <use xlink:href="#icon-delete"></use>
-        </svg>
-    </button>
-    <button class="btn" type="submit" (click)="onRefreshClick($event)" *ngIf="state.isRefreshVisible">
-        <svg class="icon">
-            <use xlink:href="#icon-refresh"></use>
-        </svg>
-    </button>
 </div>
 <style>
     :host {
@@ -58,6 +21,7 @@
         border: 1px solid #ced4da;
         border-radius: 5px;
         padding: 0 5px;
+        cursor: pointer;
     }
 
         :host:hover {
@@ -66,20 +30,12 @@
 
     .l-text {
         flex: 1 1 auto;
-        cursor: pointer;
-        user-select:none;
-        white-space:nowrap;
-        text-overflow: ellipsis;
-        margin-right: 10px;
-        overflow: hidden;
     }
 
     .l-text-completed {
         text-decoration: line-through;
     }
-    .l-text-error {
-        color: red;
-    }
+
     .l-input {
         flex: 1 1 auto;
     }
@@ -94,7 +50,6 @@
 
     .l-buttons {
         flex: 0 1 auto;
-        white-space: nowrap;
     }
 
     @keyframes flickerAnimation {

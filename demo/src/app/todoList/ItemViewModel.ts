@@ -1,26 +1,26 @@
 import { TodoItem } from './TodoService';
 
+export type SyncMode = "saved" | "pending" | "active" | "error";
+
 export class ItemViewModel {
 
     private static counter: number = 0;
 
     public static createExisting(model: TodoItem) {
-        return new ItemViewModel(++ItemViewModel.counter, model, false, null);
+        return new ItemViewModel(++ItemViewModel.counter, model, "saved", null);
     }
 
-    public static createNew() {
-        return new ItemViewModel(++ItemViewModel.counter, null, true, null);
+    public static createNew(model: TodoItem) {
+        return new ItemViewModel(++ItemViewModel.counter, model, "pending", null);
     }
 
+    private constructor(public readonly vmId: number, readonly model: TodoItem, public readonly syncMode: SyncMode, public readonly previousModel: TodoItem | null) {}
 
-    private constructor(public readonly vmId: number, readonly model: TodoItem | null, public readonly isDirty: boolean, public readonly previousModel: TodoItem | null) {
-    }
-
-    public withModel(model: TodoItem | null, isDirty: boolean) {
-        if (this.isDirty === isDirty && this.model === model) {
+    public withModel(model: TodoItem, syncMode: SyncMode) {
+        if (this.syncMode === syncMode && this.model === model) {
             return this;
         }
-        return new ItemViewModel(this.vmId, model, isDirty, this.model === model ? this.previousModel : this.model);
+        return new ItemViewModel(this.vmId, model, syncMode, this.model === model ? this.previousModel : this.model);
     }
 
     public withModelId(modelId: number) {
@@ -30,20 +30,20 @@ export class ItemViewModel {
 
         const newModel: TodoItem = Object.assign({}, this.model, <Partial<TodoItem>>{ id: modelId });
 
-        return new ItemViewModel(this.vmId, newModel, this.isDirty, this.previousModel);
+        return new ItemViewModel(this.vmId, newModel, this.syncMode, this.previousModel);
     }
 
     public withPreviousModel(previousModel: TodoItem) {
         if (this.previousModel === previousModel) {
             return this;
         }
-        return new ItemViewModel(this.vmId, this.model, this.isDirty, previousModel);
+        return new ItemViewModel(this.vmId, this.model, this.syncMode, previousModel);
     }
 
-    public withIsDirty(isDirty: boolean) {
-        if (this.isDirty === isDirty) {
+    public withsyncMode(syncMode: SyncMode) {
+        if (this.syncMode === syncMode) {
             return this;
         }
-        return new ItemViewModel(this.vmId, this.model, isDirty, this.previousModel);
+        return new ItemViewModel(this.vmId, this.model, syncMode, this.previousModel);
     }
 }

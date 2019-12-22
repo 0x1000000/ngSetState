@@ -1,9 +1,9 @@
 ﻿import { SimpleChange, EventEmitter} from "@angular/core"
-import { With, WithStateBase, IWithState, In, Out, Calc } from "./../src/ngSetState";
+import { With, WithStateBase, IWithState, In, Out, Calc } from "../src/ngSetState";
 import { } from "jasmine";
 
-describe('Tests', () => {
-    it('Component properties should be initialized and result should be reflect arguments', () => {
+describe('Synchronous tests', () => {
+    it('Component properties should be initialized and result should reflect arguments', () => {
 
         let result: number = -100;
         const component = new TestComponent() as any as ITestComponent;
@@ -134,7 +134,6 @@ describe('Tests', () => {
         expect(component.state.arr2).toBe(2);
         expect(component.state.arr3).toBe(3);
     });
-
 
     it("Infinite recursive update should be detected", () => {
         const component = new TestComponentForCycles();
@@ -268,7 +267,6 @@ class TestStateForCycles2 {
         }
     }
 }
-
 
 class TestCalcProps extends WithStateBase<TestCalcPropsSate> {
     constructor() {

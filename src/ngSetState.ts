@@ -3,9 +3,9 @@ import { OnChanges, SimpleChanges, EventEmitter } from "@angular/core";
 export interface IWithState<TState> extends OnChanges {
     state: TState;
 
-    modifyState(propName: keyof TState, value: any): void;
+    modifyState(propName: keyof TState, value: any): boolean;
 
-    modifyStateDiff(diff: Partial<TState>|null): void;
+    modifyStateDiff(diff: Partial<TState>|null): boolean;
 
     onAfterStateApplied?(previousState?: TState): void;
 }
@@ -33,6 +33,10 @@ export abstract class WithStateBase<TState> implements IWithState<TState> {
     public ngOnChanges(changes: SimpleChanges): void {
         Functions.ngOnChanges(this, changes);
     }    
+
+    public whenAll(): Promise<any> {
+        return AsyncState.whenAll(this);
+    }
 }
 
 export function WithState<TState>(stateType: Constructor<TState>, ngInputs: string[], ngOutputs: string[], factory?: () => TState): (t: Constructor<any>) => any {
@@ -117,7 +121,6 @@ export function Calc<TState, Prop extends keyof TState>(propNames: (keyof TState
             res[propertyKey] = func(currentSate, previousSate, diff);
             return res;
         };
-
         for (const propName of propNames) {
 
             let detect = false;
@@ -136,32 +139,189 @@ export function Calc<TState, Prop extends keyof TState>(propNames: (keyof TState
     };
 }
 
-export function With<TState>(...propNames: (keyof TState)[]) {
+function addModifier<TState>(target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof TState)[], asyncData: AsyncData | null) {
+    const stateMeta = Functions.ensureStateMeta(target);
+    let modifier: Modifier<TState> | AsyncModifier<TState> = descriptor.value;
 
-    return (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
-        const stateMeta = Functions.ensureStateMeta(target);
+    if (asyncData) {
+        const original = modifier;
+        modifier = function (...args: any[]) {
+            return original.apply(this, args);
+        };
+        (<AsyncModifier<TState>><any>modifier).asyncData = asyncData;
+    }
 
-        const modifier: Modifier<TState> = descriptor.value;
+    for (const propName of propNames) {
+        let detect = false;
+        for (const m of stateMeta.modifiers) {
 
-        for (const propName of propNames) {
-
-            let detect = false;
-            for (const m of stateMeta.modifiers) {
-
-                if (m.prop === propName) {
-                    if (m.fun.includes(modifier)) {
-                        throw new Error(`Modifier with name '${propertyKey}' has been alredy declared`);
-                    }
-                    m.fun.push(modifier);
-                    detect = true;
+            if (m.prop === propName) {
+                if (m.fun.includes(modifier)) {
+                    throw new Error(`Modifier with name '${propertyKey}' has been alredy declared`);
                 }
-            }
-
-            if (!detect) {
-                stateMeta.modifiers.push({ prop: propName, fun: [modifier] });
+                m.fun.push(modifier);
+                detect = true;
             }
         }
+
+        if (!detect) {
+            stateMeta.modifiers.push({ prop: propName, fun: [modifier] });
+        }
+    }
+
+}
+
+export function With<TState>(...propNames: (keyof TState)[]) {
+    return (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+        return addModifier(target, propertyKey, descriptor, propNames, null);
     };
+}
+
+export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAndAllOptions<TState>{
+
+    const asyncData: AsyncData = {
+        locks: [],
+        behaviourOnConcurrentLaunch: "putAfter",
+        behaviourOnError: "throw",
+    };
+
+    const result: IWithAsyncAndAllOptions<TState> = <any>
+        ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+            return addModifier(target, propertyKey, descriptor, propNames, asyncData);
+        });
+
+    const checks: { onConcurrent: boolean, locks: boolean, onError: boolean } = {onConcurrent: false, locks: false, onError: false};
+
+    const checkOnConcurrent = () => {
+        if (checks.onConcurrent) {
+            throw new Error("function OnConcurrent...() has been called several times");
+        } else {
+            checks.onConcurrent = true;
+        }
+    };
+    const checkLocks = () => {
+        if (checks.locks) {
+            throw new Error("function Locks() has been called several times");
+        } else {
+            checks.locks = true;
+        }
+    };
+    const checkOnError = () => {
+        if (checks.onError) {
+            throw new Error("function OnError...() has been called several times");
+        } else {
+            checks.locks = true;
+        }
+    };
+
+    const optional: IWithAsyncAllOptions<TState> = {
+        OnConcurrentLaunchCancel: () => {
+            checkOnConcurrent();
+            asyncData.behaviourOnConcurrentLaunch = "cancel";
+            return result;
+        },
+        OnConcurrentLaunchPutAfter: () => {
+            checkOnConcurrent();
+            asyncData.behaviourOnConcurrentLaunch = "putAfter";
+            return result;
+        },
+        OnConcurrentLaunchReplace: () => {
+            checkOnConcurrent();
+            asyncData.behaviourOnConcurrentLaunch = "replace";
+            return result;
+        },
+        OnConcurrentLaunchConcurrent: () => {
+            checkOnConcurrent();
+            asyncData.behaviourOnConcurrentLaunch = "concurrent";
+            return result;
+        },
+        Locks: (...lockIds: string[]) => {
+            checkLocks();
+            asyncData.locks = lockIds;
+            return result;
+        },
+        OnErrorThrow: () => {
+            checkOnError();
+            asyncData.behaviourOnError = "throw";
+            return result;
+        },
+        OnErrorForget: () => {
+            checkOnError();
+            asyncData.behaviourOnError = "forget";
+            return result;
+        },
+        OnErrorCall: (method: (currentState: TState, error: any) => Partial<TState> | null) => {
+            checkOnError();
+            asyncData.behaviourOnError = { callMethod: method };
+            return result;
+        }
+    }
+
+    Object.assign(result, optional);
+
+    return result;
+}
+
+export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState>;
+export type IWithAsyncAndAllOptions<TState> = IWithAsync<TState> & IWithAsyncAllOptions<TState>;
+
+export interface IWithAsyncOnConcurrentLaunch<TState> {
+    OnConcurrentLaunchCancel(): IWithAsyncAndAllOptions<TState>;
+    OnConcurrentLaunchPutAfter(): IWithAsyncAndAllOptions<TState>;
+    OnConcurrentLaunchReplace(): IWithAsyncAndAllOptions<TState>;
+    OnConcurrentLaunchConcurrent(): IWithAsyncAndAllOptions<TState>;
+}
+
+export interface IWithAsyncLocks<TState> {
+    Locks(...lockIds: string[]): IWithAsyncAndAllOptions<TState>;
+}
+
+export interface IWithAsyncOnError<TState> {
+    OnErrorThrow(): IWithAsyncAndAllOptions<TState>;
+    OnErrorForget(): IWithAsyncAndAllOptions<TState>;
+    OnErrorCall(method: (currentState: TState, error: any)=> Partial<TState>|null): IWithAsyncAndAllOptions<TState>;
+}
+
+export interface IWithAsync<TState> {
+    (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor);
+}
+
+export function AsyncInit<TState>(): IWithAsync<TState> & IAsyncInitLocks<TState> {
+
+    const asyncData: AsyncData = {
+        locks: [],
+        behaviourOnConcurrentLaunch: "concurrent",
+        behaviourOnError: "throw",
+    };
+
+    const result: IWithAsync<TState> =
+        ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+
+            const stateMeta = Functions.ensureStateMeta(target);
+
+            let asyncInit: AsyncModifier<TState> = descriptor.value;
+
+            const original = asyncInit;
+            asyncInit = function(...args: any[]) {
+                return original.apply(this, args);
+            } as any;
+
+            (<AsyncModifier<TState>><any>asyncInit).asyncData = asyncData;
+
+            stateMeta.asyncInit = asyncInit;
+        }) as any;
+
+    const optional: IAsyncInitLocks<TState> = {
+        Locks: (...lockIds: string[]) => {
+            asyncData.locks = lockIds;
+            return result;
+        }
+    };
+    return Object.assign(result, optional);
+}
+
+export interface IAsyncInitLocks<TState> {
+    Locks(...lockIds: string[]): IWithAsync<TState>;
 }
 
 class Functions {
@@ -214,6 +374,13 @@ class Functions {
         for (const inputProp of stateMeta.inputs) {
             component[inputProp.componentProp] = state[inputProp.stateProp];
         }
+
+
+        //Push async init
+        if (stateMeta.asyncInit != null) {
+            const init = stateMeta.asyncInit
+            setTimeout(() => AsyncState.pushModifiers(component, [init]));
+        }        
     }
 
     public static ngOnChanges<TState>(component: IWithState<TState>, changes: SimpleChanges): void {
@@ -256,8 +423,11 @@ class Functions {
 
         const previousState = component.state;
 
-        component.state = Functions.updateCycle(stateMeta, previousState, diff);
+        const { newState, asyncModifiers} = Functions.updateCycle(stateMeta, previousState, diff);
 
+        component.state = newState;
+
+        let result = false;
         if (component.state !== previousState) {
             for (const output of stateMeta.outputs) {
                 if (previousState[output.stateProp] !== component.state[output.stateProp]) {
@@ -268,34 +438,55 @@ class Functions {
             if (component.onAfterStateApplied) {
                 component.onAfterStateApplied(previousState);
             }
-            return true;
-        } else {
-            return false;
+            result = true;
         }
+
+        if (asyncModifiers && asyncModifiers.length > 0) {
+            AsyncState.pushModifiers(component, asyncModifiers);
+        }
+
+        return result;
     }
 
-    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): TState {
+    public static checkPromise<TState>(data: any): data is PromiseLike<TState> {
+        return data && typeof data.then === "function";
+    }
+
+    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null } {
         if (diff == null) {
-            return previousState;
+            return {newState: previousState, asyncModifiers: null }
         }
         const currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
 
         return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff);
     }
 
-    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): TState {
+    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null} {
         let watchDog = 1000;
         let diffKeys = Object.keys(diff);
-        let modifiers: Modifier<TState>[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
+        let modifiers: (Modifier<TState> | AsyncModifier<TState>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
+
+        let asyncModifiers: AsyncModifier<TState>[]|null = null;
 
         while (watchDog > 0) {
 
             if (modifiers.length < 1) {
-                return currentState;
+                return { newState: currentState, asyncModifiers: asyncModifiers };
             }
             const modifiersAcc: Modifier<TState>[] = [];
             for (const modifier of modifiers) {
+                if (isAsyncModifier(modifier)) {
+                    if (!asyncModifiers) {
+                        asyncModifiers = [];
+                    }
+                    asyncModifiers.push(modifier);
+                    continue;
+                }
+
                 diff = modifier.apply(currentState, [currentState, previousState, diff]);
+                if (Functions.checkPromise(diff)) {
+                    throw new Error(`All functions which return promises and are marked with "@With" should be also marked with "@Async"`);
+                }
                 if (diff != null) {
 
                     diffKeys = Object.keys(diff);
@@ -313,8 +504,8 @@ class Functions {
         throw new Error("Recursion overflow");
     }
 
-    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: string[], modifiersAcc: Modifier<TState>[] | null): Modifier<TState>[] {
-        const acc: Modifier<TState>[] = modifiersAcc == null ? [] : modifiersAcc;
+    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: string[], modifiersAcc: Modifier<TState>[] | null): (Modifier<TState> | AsyncModifier<TState>)[] {
+        const acc: (Modifier<TState>|AsyncModifier<TState>)[] = modifiersAcc == null ? [] : modifiersAcc;
 
         for (const modifier of stateMeta.modifiers) {
             if (diffKeys.some(dk => modifier.prop === dk && previousState[dk] !== newState[dk] /*Even if the key is in diff it does not mean that the property is actually changed*/)) {
@@ -354,12 +545,11 @@ class Functions {
 
         const cons = typeof obj === "function" ? obj : obj.constructor;
 
-
         if (cons[STATE_META]) {
             return cons[STATE_META];
         }
 
-        const stateMeta: StateMeta<TState> = { stateConstructor: null, inputs: [], outputs: [], modifiers: [] };
+        const stateMeta: StateMeta<TState> = { stateConstructor: null, inputs: [], outputs: [], modifiers: [], asyncInit: null };
 
         cons[STATE_META] = stateMeta;
 
@@ -410,6 +600,8 @@ const STATE_META = "__state_meta__";
 
 const EMITTER_SUFFIX = "Change";
 
+const ASYNC_STATE = "__async_state__";
+
 export interface Constructor<T> { new(...args: any[]): T; }
 
 interface NgComponentType extends Constructor<OnChanges> {}
@@ -423,7 +615,279 @@ interface StateMeta<TState> {
     stateConstructor: Constructor<TState> | null;
     inputs: PropMeta<TState>[];
     outputs: PropMeta<TState>[];
-    modifiers: { prop: (keyof TState), fun: Modifier<TState>[] }[];
+    modifiers: { prop: (keyof TState), fun: (Modifier<TState> | AsyncModifier<TState>)[] }[];
+    asyncInit: AsyncModifier<TState> | null;
 }
 
-type Modifier<TState> = (currentSate: TState, previousSate: TState, diff: Partial<TState>) => Partial<TState> | null;
+interface Modifier<TState> {
+    (currentSate: TState, previousSate: TState, diff: Partial<TState>): Partial<TState> | null;    
+}
+
+interface AsyncModifier<TState> {
+    (currentSate: ()=>TState): Partial<TState> | null;    
+
+    asyncData: AsyncData;
+}
+
+function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifier<TState>): modifier is AsyncModifier<TState> {
+    return (<AsyncModifier<TState>>modifier).asyncData != null;
+}
+
+type BehaviourOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent";
+type BehaviourOnError = "throw" | "forget" | {callMethod: (currentState: any, error: any) => any};
+
+type AsyncData =
+{
+    locks: string[] | null,
+    behaviourOnConcurrentLaunch: BehaviourOnConcurrentLaunch;
+    behaviourOnError: BehaviourOnError;
+}
+
+type RunningModifier<TState> = {
+    readonly id: number,
+    readonly modifier: AsyncModifier<TState>,
+    readonly promise: Promise<void>;
+    next: AsyncModifier<TState> | null;
+}
+
+class RunningPool<TState> {
+
+    private readonly _storage: RunningModifier<TState>[] = [];
+
+    private readonly _lockQueue: AsyncModifier<TState>[] = [];
+
+    private _counter: number = 0;
+
+    public nextOrCurrentId(modifier: AsyncModifier<TState>): [number, number|null] | null {
+
+        const running = this.getByModifierId(modifier);
+
+        const behaviour = modifier.asyncData.behaviourOnConcurrentLaunch;
+
+        let oldId: number|null = null;
+
+        if (running) {
+            if (behaviour === "replace") {
+                oldId = running.id;
+            }
+            else if (behaviour === "cancel") {
+                return null;
+            }
+
+            else if (behaviour === "putAfter") {
+                running.next = modifier;
+                return null;
+            }
+            else if (behaviour !== "concurrent") {
+                throw new Error("Unknown behaviour: " + behaviour);
+            }
+        }
+
+        if (this.putIntoLockQueue(modifier)) {
+            return null;
+        }
+
+        const id = this._counter++;
+        if (this._counter === Number.MAX_SAFE_INTEGER) {
+            this._counter = 0;
+        }
+
+        return [id, oldId];
+    }
+
+    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null) {
+
+        const newItem: RunningModifier<TState> = {
+            id: id,
+            modifier: modifier,
+            promise: promise,
+            next: null
+        };
+
+        this._storage.push(newItem);
+        if (oldId != null) {
+            const pending = this.deleteByIdAndGetPendingModifier(oldId);
+            if (pending != null) {
+                throw new Error("Replaced modifier cannot have a pending one");
+            }
+        }
+    }
+
+    public exists(id: number) {
+        return this._storage.findIndex(i => i.id === id) >= 0;
+    }
+
+    public deleteByIdAndGetPendingModifier(id: number): AsyncModifier<TState> | null {
+
+        let result: AsyncModifier<TState> | null = null;
+
+        const index = this._storage.findIndex(i => i.id === id);
+        if (index >= 0) {
+            result = this._storage[index].next;
+            this._storage.splice(index, 1);
+        }
+
+        if (result == null) {
+            result = this.extractFromLockQueue();
+        }
+
+        return result;
+    }
+
+    public getAllPromises(): Promise<any>[] {
+        return this._storage.map(i => i.promise);
+    }
+
+    private getByModifierId(modifier: AsyncModifier<TState>): RunningModifier<TState> | null {
+        const index = this._storage.findIndex(i => i.modifier === modifier);
+        return index < 0 ? null : this._storage[index];
+    }
+
+    private putIntoLockQueue(modifier: AsyncModifier<TState>): boolean {
+        const targetLocks = modifier.asyncData.locks;
+        if (targetLocks == null || targetLocks.length < 1) {
+            return false;
+        }
+
+        for (const ri of this._storage) {
+            if (ri.modifier.asyncData.locks != null && ri.modifier.asyncData.locks.length > 0) {
+                if (RunningPool.locksIntersect(ri.modifier, modifier)) {
+                    this._lockQueue.push(modifier);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private extractFromLockQueue(): AsyncModifier<TState> | null {
+        if (this._lockQueue.length < 1) {
+            return null;
+        }
+        let index = 0;
+        if (this._storage.length > 0) {
+            index = this._lockQueue.findIndex(lq => !this._storage.some(s => RunningPool.locksIntersect(s.modifier, lq)));
+        }
+        let res: AsyncModifier<TState> | null = null;
+        if (index >= 0) {
+            res = this._lockQueue[index];
+            this._lockQueue.splice(index, 1);
+        }
+        return res;
+    }
+
+    private static locksIntersect<TState>(x: AsyncModifier<TState>, y: AsyncModifier<TState>): boolean {
+        const xL = x.asyncData.locks;
+        const yL = y.asyncData.locks;
+
+        if (xL == null || xL.length < 1 || yL == null || yL.length < 1) {
+            return false;
+        }
+        return xL.some(xLi => yL.some(yLi => yLi === xLi));
+    }
+}
+
+class AsyncState<TState> {
+
+    constructor(private readonly _component: IWithState<TState>) { }
+
+    private readonly _pool = new RunningPool<TState>();
+
+    private pushModifiers(modifiers: AsyncModifier<TState>[]) {
+        if (modifiers && modifiers.length > 0) {
+            for (const mod of modifiers) {
+                this.registerAndLaunchModifier(mod);
+            }
+        }
+    }
+
+    private registerAndLaunchModifier(mod: AsyncModifier<TState>): void {
+        const ids = this._pool.nextOrCurrentId(mod);
+
+        if (ids == null) {
+            return;
+        }
+        const [id, oldId] = ids;
+
+        const promise = (async () => {
+            try {
+                const res = mod(() => this._component.state);
+                if (!Functions.checkPromise(res)) {
+                    throw new Error("Async modifier should return a promise");
+                }
+                let diff: Partial<TState> | null = null;
+
+                try {
+                    //Running async modifier
+                    diff = await res;
+                } catch (error) {
+                    diff = null;
+                    if (mod.asyncData.behaviourOnError === "forget") {
+                    }
+                    else if (mod.asyncData.behaviourOnError === "throw") {
+                        throw error;
+                    }
+                    else if (mod.asyncData.behaviourOnError.callMethod != null) {
+                        const errorDiff = mod.asyncData.behaviourOnError.callMethod(this._component.state, error);
+                        if (errorDiff != null) {
+                            this._component.modifyStateDiff(errorDiff);
+                        }
+                    }
+                    else {
+                        throw new Error("Unknown error behaviour: " + mod.asyncData.behaviourOnError);
+                    }
+                }
+
+                if (this._pool.exists(id) && diff != null) {//if was not replaced
+                    this._component.modifyStateDiff(diff);
+                }
+
+            } finally {
+                const pending = this._pool.deleteByIdAndGetPendingModifier(id);
+                if (pending != null) {
+                    this.registerAndLaunchModifier(pending);
+                }
+            }
+        })();
+
+        this._pool.addNewAndDeleteOld(id, promise, mod, oldId);
+    }
+
+    public static async whenAll<TState>(component: IWithState<TState>): Promise<any> {
+        if (!component[ASYNC_STATE]) {
+            return;
+        }
+        const asyncState = AsyncState.ensureComponentAsyncState(component);
+
+        while (true) {
+            var arr = asyncState._pool.getAllPromises();
+
+            if (arr.length === 0) {
+                return;
+            }
+            await Promise.all(arr);
+        }
+    }
+
+    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[]) {
+        const instance = AsyncState.ensureComponentAsyncState<TState>(component);
+        instance.pushModifiers(modifiers);
+    }
+
+    private static ensureComponentAsyncState<TState>(component: IWithState<TState>): AsyncState<TState> {
+        if (component == null) {
+            throw new Error("Component should be initialized");
+        }
+
+        if (component[ASYNC_STATE]) {
+            return component[ASYNC_STATE];
+        }
+
+        const asyncState: AsyncState<TState> = new AsyncState<TState>(component);
+
+        component[ASYNC_STATE] = asyncState;
+
+        return asyncState;
+    }
+}
+
