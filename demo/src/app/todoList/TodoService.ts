@@ -11,7 +11,7 @@ export class TodoService {
     }
 
     public async getItems(): Promise<TodoItem[]> {
-        await TodoService.delayMs(7000);
+        await TodoService.delayMs(1000);
         return Array.from(this._storage);
     }
 

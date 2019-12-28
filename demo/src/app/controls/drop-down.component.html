@@ -1,0 +1,93 @@
+<div class="l-host">
+    <div class="l-box" [class.l-box-hidden]="state.isOpen" (click)="modifyStateDiff(state.toggle())">
+        <ng-container *ngTemplateOutlet="boxTemplate"></ng-container>
+    </div>
+
+    <div class="l-popover" *ngIf="state.isOpen">
+        <div class="l-box" (click)="modifyStateDiff(state.toggle())">
+            <ng-container *ngTemplateOutlet="boxTemplate"></ng-container>
+        </div>
+        <div
+             [@openClose]="state.contentAnimationState"
+             (@openClose.done)="modifyStateDiff(state.onOpneAnimationDone($event.toState), true)"
+             class="l-popover-content"
+             [class.l-popover-content-opened]="state.isOpenAnimationDone"
+        >
+            <select-list
+                [selected]="state.selected"
+                (selectedChange)="modifyState('selected', $event)"
+                (selectedItemChange)="modifyState('selectedItem', $event)"
+                [items]="state.items"
+                [idMember]="state.idMember"
+                [textMember]="state.textMember">
+
+            </select-list>
+        </div>
+    </div>
+</div>
+<ng-template #boxTemplate>
+    <div class="l-box-content">
+        {{state.text}}
+    </div>
+</ng-template>
+<style>
+    :host{
+        display:inline-block;
+        width: 200px;
+    }
+    .l-host {
+        position: relative;
+        width: 100%;
+        min-width: 100%;
+    }
+    .l-box {
+        width: 100%;
+        min-width: 100%;
+        border: 1px solid gray;
+        border-radius: 0.25rem;
+    }
+
+    .l-box-content {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .l-box-hidden {
+        visibility: hidden;
+    }
+
+    .l-box-content{
+        padding:5px;
+        user-select: none;
+        cursor: pointer;
+    }
+
+    .l-popover {
+        position: absolute;
+        z-index: 10;
+        right: 0;
+        left: 0;
+        top: 0;
+        border: 1px solid gray;
+        border-radius: 0.25rem;
+        box-shadow: 0px 0px 5px 1px rgba(0,0,0,0.25);
+        background-color: white;
+    }
+
+    .l-popover>.l-box{
+        border:0;
+    }
+
+    .l-popover-content {
+        max-height: 300px;
+        border-top: 1px solid gray;
+        overflow: hidden;
+    }
+
+    .l-popover-content-opened {
+        overflow-y: auto;
+    }
+
+
+</style>

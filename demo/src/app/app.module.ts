@@ -1,6 +1,7 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { AppComponent } from './app.component';
 import { CalculatorDemoComponent } from "./calculator/calculator-demo.component";
@@ -24,7 +25,8 @@ import { TodoService } from "./todoList/TodoService";
     imports: [
         BrowserModule,
         FormsModule,
-        ControlsModule
+        ControlsModule,
+        BrowserAnimationsModule
     ],
     providers: [StateStorageService, TodoService],
     bootstrap: [AppComponent]

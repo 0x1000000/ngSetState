@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { AppState } from "./app.state";
 import { WithStateBase } from "ng-set-state/dist/ngSetState";
+import { Country, countryList } from './Countries';
 
 @Component({
   selector: 'app-root',
@@ -11,4 +12,6 @@ export class AppComponent extends WithStateBase<AppState> {
     constructor() {
         super(new AppState(), [], []);
     }
+
+    public countryList: Country[] = countryList;
 }

@@ -44,6 +44,8 @@
     <Content Include="src\app\app.component.html" />
     <Content Include="src\app\calculator\calculator-demo.component.html" />
     <Content Include="src\app\calculator\calculator.component.html" />
+    <Content Include="src\app\controls\select-list.component.html" />
+    <Content Include="src\app\controls\drop-down.component.html" />
     <Content Include="src\app\controls\tab-pane.component.html" />
     <Content Include="src\app\controls\tabs.component.html" />
     <Content Include="src\app\controls\radio-list.component.html" />
@@ -76,14 +78,22 @@
     <TypeScriptCompile Include="src\app\calculator\calculator-demo.state.ts" />
     <TypeScriptCompile Include="src\app\calculator\calculator.component.ts" />
     <TypeScriptCompile Include="src\app\calculator\calculator.state.ts" />
+    <TypeScriptCompile Include="src\app\controls\helpers.ts" />
+    <TypeScriptCompile Include="src\app\controls\select-list.state.ts" />
+    <TypeScriptCompile Include="src\app\controls\select-list.component.ts" />
     <TypeScriptCompile Include="src\app\controls\life-cycle.directive.ts" />
+    <TypeScriptCompile Include="src\app\controls\drop-down.component.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.component.ts" />
+    <TypeScriptCompile Include="src\app\controls\drop-down.state.ts" />
     <TypeScriptCompile Include="src\app\controls\radio-list.state.ts" />
     <TypeScriptCompile Include="src\app\controls\tab-pane.state.ts" />
     <TypeScriptCompile Include="src\app\controls\tab-pane.component.ts" />
     <TypeScriptCompile Include="src\app\controls\controls.module.ts" />
     <TypeScriptCompile Include="src\app\controls\tabs.state.ts" />
     <TypeScriptCompile Include="src\app\controls\tabs.component.ts" />
+    <TypeScriptCompile Include="src\app\Countries.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\app\StateStorageService.ts" />
     <TypeScriptCompile Include="src\app\todoList\ItemViewModel.ts" />
     <TypeScriptCompile Include="src\app\todoList\todoNewItem.state.ts" />

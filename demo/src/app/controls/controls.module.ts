@@ -4,13 +4,17 @@ import { RadioListComponent } from "./radio-list.component";
 import { TabsComponent } from "./tabs.component";
 import { TabPaneComponent } from "./tab-pane.component";
 import { LifeCycleDirective } from "./life-cycle.directive";
+import { DropDownComponent } from './drop-down.component';
+import { SelectListComponent } from './select-list.component';
 
 @NgModule({
     declarations: [
         RadioListComponent,
         TabsComponent,
         TabPaneComponent,
-        LifeCycleDirective
+        LifeCycleDirective,
+        DropDownComponent,
+        SelectListComponent
     ],
     imports: [
         CommonModule
@@ -19,7 +23,9 @@ import { LifeCycleDirective } from "./life-cycle.directive";
         RadioListComponent,
         TabsComponent,
         TabPaneComponent,
-        LifeCycleDirective
+        LifeCycleDirective,
+        DropDownComponent,
+        SelectListComponent
     ],
     providers: [],
 })
