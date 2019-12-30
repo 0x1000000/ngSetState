@@ -40,7 +40,7 @@ export class DropDownState{
         return { isOpen: !this.isOpen, isOpenAnimationDone: false };
     }
 
-    public onOpneAnimationDone(toState: string): NewState {
+    public onOpenAnimationDone(toState: string): NewState {
         if (toState === "open") {
             return { isOpenAnimationDone: this.contentAnimationState === "open" };
         }

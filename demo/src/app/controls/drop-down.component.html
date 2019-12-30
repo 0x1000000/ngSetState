@@ -9,7 +9,7 @@
         </div>
         <div
              [@openClose]="state.contentAnimationState"
-             (@openClose.done)="modifyStateDiff(state.onOpneAnimationDone($event.toState), true)"
+             (@openClose.done)="modifyStateDiff(state.onOpenAnimationDone($event.toState), true)"
              class="l-popover-content"
              [class.l-popover-content-opened]="state.isOpenAnimationDone"
         >
