@@ -1,3 +1,6 @@
+## 1.0.1
+* **BUG FIX**: "Object doesn't support property or method 'includes'" in IE11
+
 ## 1.0.0
 * Asynchronous state mutators: @WithAsync(...), @AsyncInit()
 * **BREAKING CHANGE**: All components that use @WithState decorator have to change result type of "modifyStateDiff" and "modifyState" methods from __void__ to __boolean__

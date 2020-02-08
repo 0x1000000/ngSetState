@@ -3,6 +3,7 @@
 *.user
 bin/
 obj/
+tmp_publish/
 
 # Logs
 logs

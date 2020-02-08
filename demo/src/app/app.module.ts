@@ -12,6 +12,8 @@ import { TodoNewItemComponent } from "./todoList/todoNewItem.component";
 import { ControlsModule } from "./controls/controls.module";
 import { StateStorageService } from "./StateStorageService";
 import { TodoService } from "./todoList/TodoService";
+import { DropDownDemoComponent } from "./controlsDemo/drop-down-demo.component";
+import { CheckboxComponent } from "./controls/checkbox.component";
 
 @NgModule({
     declarations: [
@@ -20,7 +22,9 @@ import { TodoService } from "./todoList/TodoService";
         CalculatorDemoComponent,
         TodoListComponent,
         TodoItemComponent,
-        TodoNewItemComponent
+        TodoNewItemComponent,
+        DropDownDemoComponent,
+        CheckboxComponent
     ],
     imports: [
         BrowserModule,

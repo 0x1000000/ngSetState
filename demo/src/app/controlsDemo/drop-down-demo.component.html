@@ -1,0 +1,55 @@
+<div class="l-horizontal-pane">
+    <h2>Dropdown</h2>
+    <drop-down [items]="state.countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
+</div>
+
+<div class="l-horizontal-pane">
+    <h2>Dropdown 2 (mirror)</h2>
+    <drop-down [items]="state.countryList"
+               idMember="code"
+               textMember="name"
+               [selected]="state.selectedCountry"
+               (selectedChange)="modifyState('selectedCountry', $event)"
+               [itemTemplate]="state.itemTemplate"></drop-down>
+</div>
+<div>
+    <checkbox [checked]="state.useCustomTemplate" (checkedChange)="modifyState('useCustomTemplate', $event)">
+        Use custom item template for the second dropdown (with a country flag)
+    </checkbox>
+</div>
+<ng-template #itemTemplateCustom let-item>
+    <ng-container *ngIf="item">
+        <div class="l-item-img" [style.backgroundImage]="'url(' + item.flagUrl + ')'"></div>
+        <div class="l-item-text">{{item.name}}</div>
+    </ng-container>
+    <ng-container *ngIf="!item">EMPTY</ng-container>
+</ng-template>
+<style>
+
+    drop-down {
+        width: 300px;
+    }
+    .l-horizontal-pane {
+        display: inline-block;
+        padding: 10px;
+    }
+
+    .l-item-img, .l-item-text {
+        vertical-align: middle;
+        display: inline-block;
+    }
+
+    .l-item-text {
+        width: 210px;
+        overflow: hidden;
+        text-overflow: ellipsis;    }
+
+    .l-item-img {
+        width: 48px;
+        height: 24px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        margin-right: 10px;
+    }
+</style>

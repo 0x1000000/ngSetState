@@ -156,7 +156,7 @@ function addModifier<TState>(target: Constructor<TState>, propertyKey: string, d
         for (const m of stateMeta.modifiers) {
 
             if (m.prop === propName) {
-                if (m.fun.includes(modifier)) {
+                if (m.fun.indexOf(modifier)>=0) {
                     throw new Error(`Modifier with name '${propertyKey}' has been alredy declared`);
                 }
                 m.fun.push(modifier);

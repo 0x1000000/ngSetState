@@ -18,11 +18,7 @@
     </tab-pane>
     <tab-pane title="Drop-Down" (isVisibleChange)="modifyState('dropDownVisible',$event)">
         <div class="main-content" *ngIf="state.dropDownVisible">
-            <drop-down [items]="countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
-            <br />
-            Text under
-            <br />
-            <drop-down [items]="countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
+            <drop-down-demo></drop-down-demo>
         </div>
     </tab-pane>
 </tabs>
