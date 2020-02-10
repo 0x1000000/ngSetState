@@ -1,3 +1,7 @@
+## 1.0.2
+* **BUG FIX**: Compatibility with IVY renderer
+
+
 ## 1.0.1
 * **BUG FIX**: "Object doesn't support property or method 'includes'" in IE11
 

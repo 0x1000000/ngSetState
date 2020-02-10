@@ -1,6 +1,6 @@
 {
   "name": "ng-set-state",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.",
   "main": "dist/ngSetState.js",
   "types": "dist/ngSetState.d.ts",
@@ -27,7 +27,7 @@
     "@angular/core": ">=4.0.0"
   },
   "devDependencies": {
-    "@angular/core": "~7.2.0",
+    "@angular/core": "~9.0.0",
     "@types/jasmine": "^3.5.0",
     "core-js": "^2.5.4",
     "jasmine": "^3.5.0",

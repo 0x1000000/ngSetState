@@ -1,4 +1,4 @@
-import { OnChanges, SimpleChanges, EventEmitter } from "@angular/core";
+import { OnChanges, SimpleChanges, EventEmitter, ɵɵNgOnChangesFeature} from "@angular/core";
 
 export interface IWithState<TState> extends OnChanges {
     state: TState;
@@ -336,6 +336,14 @@ class Functions {
         }
 
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(state);
+
+        //Compatibility with IVY
+        if (ɵɵNgOnChangesFeature != null) {
+			const componentDef = (<any>component).constructor.ɵcmp;
+			if(componentDef != null){
+                ɵɵNgOnChangesFeature()(componentDef);
+			}
+        }
 
         //CheckInputs
 
