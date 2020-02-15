@@ -38,11 +38,29 @@
     </TypeScriptCompile>
     <TypeScriptCompile Include="spec\ngSetState.Async.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Sync.spec.ts" />
+    <TypeScriptCompile Include="src\api\common.ts" />
+    <TypeScriptCompile Include="src\api\i_with_state.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\async_init.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\calc.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\in.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\out.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\with.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\with_async.ts" />
+    <TypeScriptCompile Include="src\api\with_state.ts" />
+    <TypeScriptCompile Include="src\api\with_state_base.ts" />
+    <TypeScriptCompile Include="src\impl\async_state.ts" />
+    <TypeScriptCompile Include="src\impl\domain.ts" />
+    <TypeScriptCompile Include="src\impl\functions.ts" />
+    <TypeScriptCompile Include="src\impl\running_pool.ts" />
+    <TypeScriptCompile Include="src\impl\utils.ts" />
     <TypeScriptCompile Include="src\ngSetState.ts" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="spec\" />
     <Folder Include="src" />
+    <Folder Include="src\api\" />
+    <Folder Include="src\api\state_decorators\" />
+    <Folder Include="src\impl\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <!--Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them.-->
