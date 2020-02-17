@@ -1,9 +1,9 @@
 import { EventEmitter, SimpleChanges, ɵɵNgOnChangesFeature } from "@angular/core";
 import { IWithState } from './../api/i_with_state';
-import { Constructor } from './../api/common';
+import { Constructor, Constructor as IConstructor } from './../api/common';
 import { AsyncState } from './async_state';
-import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, PropMeta, AsyncData } from './domain';
-import { checkPromise } from './utils';
+import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData, PropMeta} from './domain';
+import { checkPromise, cmpByProp } from './utils';
 
 export class Functions {
     
@@ -67,8 +67,8 @@ export class Functions {
 
         //Push async init
         if (stateMeta.asyncInit != null) {
-            const init = stateMeta.asyncInit
-            setTimeout(() => AsyncState.pushModifiers(component, [init]));
+            const init = stateMeta.asyncInit;
+            setTimeout(() => AsyncState.pushModifiers(component, [init], component.state));
         }        
     }
 
@@ -131,7 +131,7 @@ export class Functions {
         }
 
         if (asyncModifiers && asyncModifiers.length > 0) {
-            AsyncState.pushModifiers(component, asyncModifiers);
+            AsyncState.pushModifiers(component, asyncModifiers, previousState);
         }
 
         return result;
@@ -224,7 +224,7 @@ export class Functions {
         const acc: (Modifier<TState>|AsyncModifier<TState>)[] = modifiersAcc == null ? [] : modifiersAcc;
 
         for (const modifier of stateMeta.modifiers) {
-            if (diffKeys.some(dk => modifier.prop === dk && previousState[dk] !== newState[dk] /*Even if the key is in diff it does not mean that the property is actually changed*/)) {
+            if (diffKeys.some(dk => modifier.prop === dk && !cmpByProp(previousState, newState, dk) /*Even if the key is in diff it does not mean that the property is actually changed*/)) {
                 for (const modifierFun of modifier.fun) {
                     if (acc.indexOf(modifierFun) < 0) {
                         acc.push(modifierFun);
@@ -254,7 +254,7 @@ export class Functions {
         return null;
     }
 
-    public static ensureStateMeta<TState extends Object>(obj: TState | Constructor<TState>): StateMeta<TState> {
+    public static ensureStateMeta<TState extends Object>(obj: TState | IConstructor<TState>): StateMeta<TState> {
         if (obj == null) {
             throw new Error("State should be initialized");
         }

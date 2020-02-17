@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { AppState } from "./app.state";
-import { WithStateBase } from "ng-set-state/dist/ngSetState";
+import { WithStateBase } from "ng-set-state";
 
 @Component({
   selector: 'app-root',

@@ -1,6 +1,6 @@
 import { RunningPool } from "./running_pool";
 import { AsyncModifier, ASYNC_STATE } from './domain';
-import { IWithState } from './../ngSetState';
+import { IWithState } from './../api/i_with_state';
 import { checkPromise } from './utils';
 
 export class AsyncState<TState> {
@@ -9,9 +9,9 @@ export class AsyncState<TState> {
 
     private readonly _pool = new RunningPool<TState>();
     
-    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[]) {
+    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[], previousState: TState) {
         const instance = AsyncState.ensureComponentAsyncState<TState>(component);
-        instance.pushModifiers(modifiers);
+        instance.pushModifiers(modifiers, previousState);
     }
 
     public static async whenAll<TState>(component: IWithState<TState>): Promise<any> {
@@ -30,15 +30,15 @@ export class AsyncState<TState> {
         }
     }
 
-    private pushModifiers(modifiers: AsyncModifier<TState>[]) {
+    private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState) {
         if (modifiers && modifiers.length > 0) {
             for (const mod of modifiers) {
-                this.registerAndLaunchModifier(mod);
+                this.registerAndLaunchModifier(mod, previousState);
             }
         }
     }
 
-    private registerAndLaunchModifier(mod: AsyncModifier<TState>): void {
+    private registerAndLaunchModifier(mod: AsyncModifier<TState>, previousState: TState): void {
         const ids = this._pool.nextOrCurrentId(mod);
 
         if (ids == null) {
@@ -46,9 +46,13 @@ export class AsyncState<TState> {
         }
         const [id, oldId] = ids;
 
+        //A task can be replaced by another one that is why the original state is required
+        const originalState = oldId != null ? this._pool.getById(oldId).originalState : previousState;
+        
         const promise = (async () => {
             try {
-                const res = mod(() => this._component.state);
+
+                const res = mod(() => this._component.state, originalState);
                 if (!checkPromise(res)) {
                     throw new Error("Async modifier should return a promise");
                 }
@@ -82,12 +86,12 @@ export class AsyncState<TState> {
             } finally {
                 const pending = this._pool.deleteByIdAndGetPendingModifier(id);
                 if (pending != null) {
-                    this.registerAndLaunchModifier(pending);
+                    this.registerAndLaunchModifier(pending, previousState);
                 }
             }
         })();
 
-        this._pool.addNewAndDeleteOld(id, promise, mod, oldId);
+        this._pool.addNewAndDeleteOld(id, promise, mod, oldId, originalState);
     }
 
     private static ensureComponentAsyncState<TState>(component: IWithState<TState>): AsyncState<TState> {

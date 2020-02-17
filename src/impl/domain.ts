@@ -24,7 +24,7 @@ export interface Modifier<TState> {
 }
 
 export interface AsyncModifier<TState> {
-    (currentSate: ()=>TState): Partial<TState> | null;    
+    (currentSate: ()=>TState, originalState: TState): Partial<TState> | null;    
 
     asyncData: AsyncData;
 }
@@ -47,5 +47,6 @@ export type RunningModifier<TState> = {
     readonly id: number,
     readonly modifier: AsyncModifier<TState>,
     readonly promise: Promise<void>;
+    readonly originalState: TState;
     next: AsyncModifier<TState> | null;
 }

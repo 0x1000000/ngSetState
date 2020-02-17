@@ -2,12 +2,14 @@
   "name": "ng-set-state",
   "version": "1.0.2",
   "description": "Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.",
-  "main": "dist/ngSetState.js",
-  "types": "dist/ngSetState.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf dist && rollup -c && npm run cp_publish",
+    "test": "jasmine-ts --config=./jasmine.json --project spec/tsconfig.json",
+    "build_for_demo": "npm run build && npm run cp_publish_to_demo",
     "cp_publish": "rimraf tmp_publish && cpx \"./dist/**/*.*\" tmp_publish/dist && cpx \"./{package.json,LICENSE,CHANGELOG.md,README_NPM.md}\" tmp_publish  && node -e \"require('fs').rename('tmp_publish/README_NPM.md', 'tmp_publish/README.md', function(err) { if (err) console.log(err); })\"",
-    "test": "jasmine-ts --config=./jasmine.json --project spec/tsconfig.json"
+    "cp_publish_to_demo": "rimraf  demo/node_modules/ng-set-state && cpx \"./tmp_publish/**/*.*\" demo/node_modules/ng-set-state"
   },
   "repository": {
     "type": "git",

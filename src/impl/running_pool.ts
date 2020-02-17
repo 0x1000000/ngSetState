@@ -45,26 +45,38 @@ export class RunningPool<TState> {
         return [id, oldId];
     }
 
-    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null) {
+    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null, previousState: any) {
 
-        const newItem: RunningModifier<TState> = {
-            id: id,
-            modifier: modifier,
-            promise: promise,
-            next: null
-        };
-
-        this._storage.push(newItem);
+        let originalState = previousState;
         if (oldId != null) {
+            originalState = this.getById(oldId).originalState;
             const pending = this.deleteByIdAndGetPendingModifier(oldId);
             if (pending != null) {
                 throw new Error("Replaced modifier cannot have a pending one");
             }
         }
+        const newItem: RunningModifier<TState> = {
+            id: id,
+            modifier: modifier,
+            promise: promise,
+            next: null,
+            originalState: originalState
+        };
+
+        this._storage.push(newItem);
+        return newItem;
     }
 
     public exists(id: number) {
         return this._storage.findIndex(i => i.id === id) >= 0;
+    }
+
+    public getById(id: number): RunningModifier<TState> {
+        const oldItemIndex = this._storage.findIndex(i => i.id === id);
+        if (oldItemIndex >= 0) {
+            return  this._storage[oldItemIndex];
+        }
+        throw new Error("Could not find a running task by its id");
     }
 
     public deleteByIdAndGetPendingModifier(id: number): AsyncModifier<TState> | null {

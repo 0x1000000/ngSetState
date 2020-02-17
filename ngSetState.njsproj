@@ -36,6 +36,7 @@
     <TypeScriptCompile Include="spec\helpers.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="spec\ngSetState.Time.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Async.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Sync.spec.ts" />
     <TypeScriptCompile Include="src\api\common.ts" />
@@ -53,7 +54,7 @@
     <TypeScriptCompile Include="src\impl\functions.ts" />
     <TypeScriptCompile Include="src\impl\running_pool.ts" />
     <TypeScriptCompile Include="src\impl\utils.ts" />
-    <TypeScriptCompile Include="src\ngSetState.ts" />
+    <TypeScriptCompile Include="src\index.ts" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="spec\" />
@@ -61,6 +62,9 @@
     <Folder Include="src\api\" />
     <Folder Include="src\api\state_decorators\" />
     <Folder Include="src\impl\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="rollup.config.js" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <!--Do not delete the following Import Project.  While this appears to do nothing it is a marker for setting TypeScript properties before our import that depends on them.-->

@@ -1,6 +1,6 @@
 import { Component, QueryList, ChangeDetectionStrategy, ContentChildren, AfterContentInit, ChangeDetectorRef } from '@angular/core';
 import { TabPaneComponent } from "./tab-pane.component";
-import { WithStateBase } from "ng-set-state/dist/ngSetState";
+import { WithStateBase } from "ng-set-state";
 import { TabsState, TabLabel } from "./tabs.state";
 
 @Component({
