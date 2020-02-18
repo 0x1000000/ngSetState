@@ -16,7 +16,7 @@ export class TodoService {
     }
 
     public async saveItems(items: TodoItem[]): Promise<TodoItem[]> {
-        await TodoService.delayMs(5000);
+        await TodoService.delayMs(3000);
         const result: TodoItem[] = [];
         if (Math.round(Math.random() * 5) === 1) {
             throw new Error("Random error");

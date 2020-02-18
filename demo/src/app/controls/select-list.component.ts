@@ -19,7 +19,7 @@ export class SelectListComponent extends WithStateBase<SelectListState> implemen
         super(new SelectListState(), SelectListState.ngInputs, SelectListState.ngOutputs);
     }
 
-    @ViewChild("itemTemplateDefault")
+    @ViewChild("itemTemplateDefault", { static: true })
     public itemTemplateDefault: TemplateRef<ItemTemplateContext>;
 
     public ngOnInit(): void {

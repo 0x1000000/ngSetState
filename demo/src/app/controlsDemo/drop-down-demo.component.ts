@@ -19,7 +19,7 @@ export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> impl
         super(new DropDownDemoState(), DropDownDemoState.ngInputs, DropDownDemoState.ngOutputs);
     }
 
-    @ViewChild("itemTemplateCustom")
+    @ViewChild("itemTemplateCustom", { static: true })
     public itemTemplateCustom: any;
 
     public ngOnDestroy(): void {

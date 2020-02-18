@@ -11,7 +11,7 @@
         </div>
     </tab-pane>
     <tab-pane title="ToDo List" (isVisibleChange)="modifyState('todoListVisible',$event)">
-        <p>Save request takes 5 seconds and sometimes it fails (this behavior is simulated). However, you can edit “TODO” items in real time – all changes will be queued and will be performed when previous operations are done. If you leave the tab when some saving operation is running the list will be destroyed, but operation will be continued, and state will be updated. It can lead to a component blocking to prevent states conflict.</p>
+        <p>Save request takes 3 seconds and sometimes it fails (this behavior is simulated). However, you can edit “TODO” items in real time – all changes will be queued and will be performed when previous operations are done. If you leave the tab when some saving operation is running the list will be destroyed, but operation will be continued, and state will be updated. It can lead to a component blocking to prevent states conflict.</p>
         <div class="main-content" *ngIf="state.todoListVisible">
             <todo-list></todo-list>
         </div>

@@ -49,7 +49,7 @@ export class DropDownComponent extends WithStateBase<DropDownState> implements O
         }
     }
 
-    @ViewChild("itemTemplateDefault")
+    @ViewChild("itemTemplateDefault", { static: true })
     public itemTemplateDefault: TemplateRef<any>;
 
     @HostBinding('tabindex')
