@@ -68,7 +68,7 @@ export class Functions {
         //Push async init
         if (stateMeta.asyncInit != null) {
             const init = stateMeta.asyncInit;
-            setTimeout(() => AsyncState.pushModifiers(component, [init], component.state));
+            setTimeout(() => AsyncState.pushModifiers(component, [init], component.state, {}));
         }        
     }
 
@@ -131,7 +131,7 @@ export class Functions {
         }
 
         if (asyncModifiers && asyncModifiers.length > 0) {
-            AsyncState.pushModifiers(component, asyncModifiers, previousState);
+            AsyncState.pushModifiers(component, asyncModifiers, previousState, diff);
         }
 
         return result;

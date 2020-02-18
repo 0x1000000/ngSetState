@@ -2,6 +2,7 @@ import { RunningPool } from "./running_pool";
 import { AsyncModifier, ASYNC_STATE } from './domain';
 import { IWithState } from './../api/i_with_state';
 import { checkPromise } from './utils';
+import { AsyncContext } from "../api/common";
 
 export class AsyncState<TState> {
 
@@ -9,9 +10,9 @@ export class AsyncState<TState> {
 
     private readonly _pool = new RunningPool<TState>();
     
-    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[], previousState: TState) {
+    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
         const instance = AsyncState.ensureComponentAsyncState<TState>(component);
-        instance.pushModifiers(modifiers, previousState);
+        instance.pushModifiers(modifiers, previousState, diff);
     }
 
     public static async whenAll<TState>(component: IWithState<TState>): Promise<any> {
@@ -30,39 +31,36 @@ export class AsyncState<TState> {
         }
     }
 
-    private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState) {
+    private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
         if (modifiers && modifiers.length > 0) {
             for (const mod of modifiers) {
-                this.registerAndLaunchModifier(mod, previousState);
+                this.registerAndLaunchModifier(mod, previousState, diff);
             }
         }
     }
 
-    private registerAndLaunchModifier(mod: AsyncModifier<TState>, previousState: TState): void {
+    private registerAndLaunchModifier(mod: AsyncModifier<TState>, previousState: TState, diff: Partial<TState>): void {
         const ids = this._pool.nextOrCurrentId(mod);
 
         if (ids == null) {
             return;
         }
         const [id, oldId] = ids;
-
-        //A task can be replaced by another one that is why the original state is required
-        const originalState = oldId != null ? this._pool.getById(oldId).originalState : previousState;
-        
+       
         const promise = (async () => {
             try {
 
-                const res = mod(() => this._component.state, originalState);
+                const res = mod(this.createAsyncContext(id), previousState, diff);
                 if (!checkPromise(res)) {
                     throw new Error("Async modifier should return a promise");
                 }
-                let diff: Partial<TState> | null = null;
+                let asyncDiff: Partial<TState> | null = null;
 
                 try {
                     //Running async modifier
-                    diff = await res;
+                    asyncDiff = await res;
                 } catch (error) {
-                    diff = null;
+                    asyncDiff = null;
                     if (mod.asyncData.behaviourOnError === "forget") {
                     }
                     else if (mod.asyncData.behaviourOnError === "throw") {
@@ -79,19 +77,28 @@ export class AsyncState<TState> {
                     }
                 }
 
-                if (this._pool.exists(id) && diff != null) {//if was not replaced
-                    this._component.modifyStateDiff(diff);
+                if (this._pool.exists(id) && asyncDiff != null) {//if was not replaced
+                    this._component.modifyStateDiff(asyncDiff);
                 }
 
             } finally {
                 const pending = this._pool.deleteByIdAndGetPendingModifier(id);
                 if (pending != null) {
-                    this.registerAndLaunchModifier(pending, previousState);
+                    this.registerAndLaunchModifier(pending, previousState, diff);
                 }
             }
         })();
 
-        this._pool.addNewAndDeleteOld(id, promise, mod, oldId, originalState);
+        this._pool.addNewAndDeleteOld(id, promise, mod, oldId, previousState, diff);
+    }
+
+    private createAsyncContext(id: number): AsyncContext<TState> {
+
+        const result = (() => this._component.state) as AsyncContext<TState>;
+
+        result.isCancelled = () => !this._pool.exists(id);
+
+        return result;
     }
 
     private static ensureComponentAsyncState<TState>(component: IWithState<TState>): AsyncState<TState> {

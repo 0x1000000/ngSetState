@@ -1,5 +1,5 @@
 ﻿import { SimpleChange, EventEmitter} from "@angular/core"
-import { With, WithStateBase, IWithState, In, Out, Calc } from "../src/ngSetState";
+import { With, WithStateBase, IWithState, In, Out, Calc } from "../src/index";
 import { } from "jasmine";
 
 describe('Synchronous tests', () => {

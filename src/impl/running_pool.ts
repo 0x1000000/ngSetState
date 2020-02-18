@@ -45,11 +45,15 @@ export class RunningPool<TState> {
         return [id, oldId];
     }
 
-    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null, previousState: any) {
+    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null, previousState: TState, diff: Partial<TState>) {
 
         let originalState = previousState;
+        let originalDiff = diff;
         if (oldId != null) {
-            originalState = this.getById(oldId).originalState;
+            const oldRunningItem = this.getById(oldId);
+            //A task can be replaced by another one that is why the original state is required
+            originalState = oldRunningItem.originalState;
+            originalDiff = oldRunningItem.originalDiff;
             const pending = this.deleteByIdAndGetPendingModifier(oldId);
             if (pending != null) {
                 throw new Error("Replaced modifier cannot have a pending one");
@@ -60,7 +64,8 @@ export class RunningPool<TState> {
             modifier: modifier,
             promise: promise,
             next: null,
-            originalState: originalState
+            originalState: originalState,
+            originalDiff: originalDiff
         };
 
         this._storage.push(newItem);

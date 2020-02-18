@@ -1,7 +1,7 @@
-import { Constructor } from './../../api/common';
+import { Constructor, AsyncContext } from './../../api/common';
 import { Functions } from './../../impl/functions';
 import { delayMs, cmpByPropsAll } from "./../../impl/utils";
-import { AsyncData } from './../../impl/domain';
+import { AsyncData, Modifier } from './../../impl/domain';
 
 export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<TState> {
 
@@ -54,16 +54,17 @@ export interface IWithTimeFunctions<TState> {
 }
 
 
-function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, fun: (currentState: TState)=> Partial<TState>) {
+function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, fun: Modifier<TState>) {
 
-    async function debounceModifierFun<TState>(getState: () => TState, originalState: TState): Promise<Partial<TState> | null> {
+    async function debounceModifierFun<TState>(getState: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
 
         await delayMs(debounceMs);
 
-        const currentState = getState();
-
-        if (!cmpByPropsAll(originalState, currentState, propNames as string[])) {
-            return fun.apply(currentState, [currentState, originalState]);
+        if (!getState.isCancelled()) {
+            const currentState = getState();
+            if (!cmpByPropsAll(originalState, currentState, propNames as string[])) {
+                return fun.apply(currentState, [currentState, originalState, diff]);
+            }
         }
         return null;
     }

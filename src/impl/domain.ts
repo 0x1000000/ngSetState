@@ -1,4 +1,4 @@
-import { Constructor } from './../api/common';
+import { Constructor, AsyncContext } from './../api/common';
 
 export const STATE_META = "__state_meta__";
 
@@ -24,7 +24,7 @@ export interface Modifier<TState> {
 }
 
 export interface AsyncModifier<TState> {
-    (currentSate: ()=>TState, originalState: TState): Partial<TState> | null;    
+    (currentSate: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Partial<TState> | null;    
 
     asyncData: AsyncData;
 }
@@ -48,5 +48,6 @@ export type RunningModifier<TState> = {
     readonly modifier: AsyncModifier<TState>,
     readonly promise: Promise<void>;
     readonly originalState: TState;
+    readonly originalDiff: Partial<TState>;
     next: AsyncModifier<TState> | null;
 }

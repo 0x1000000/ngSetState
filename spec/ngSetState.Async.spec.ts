@@ -1,4 +1,4 @@
-﻿import { WithStateBase, WithAsync, AsyncInit} from "../src/ngSetState";
+﻿import { WithStateBase, WithAsync, AsyncInit} from "../src/index";
 import { } from "jasmine";
 import { PromiseList, delayMs } from './helpers';
 
