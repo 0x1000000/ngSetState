@@ -72,7 +72,7 @@ export class TodoListState
         return { items: add(stateAfter.items, serverModels.map(i => ItemViewModel.createExisting(i))), isInit: true };
     }
 
-    @With("updateQueue")
+    @With("updateQueue").Debounce(2000)
     public static onUpdateQueue(currentSate: TodoListState): NewState {
 
         if (currentSate.updateQueue.length > 0 && currentSate.inAction.length < 1) {

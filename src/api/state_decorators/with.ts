@@ -31,6 +31,9 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
 
     const extra: IWithTimeFunctions<TState> = {
         Debounce(debounceMs: number): IWithAndAllOptions<TState> {
+            if(debounceMs == null || debounceMs <= 0){
+                throw new Error("Debounce time should be greater than zero");
+            }            
             parameters.debounceMs = debounceMs;
             return result;
         }

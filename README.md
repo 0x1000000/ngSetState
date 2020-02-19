@@ -37,7 +37,7 @@ export class State {
 }
 ```
 
-**Step 3:** Define “transition” functions which will be called when any of specified parameters (in “With” decorator) have just changed. The functions should return a difference object which will used to create a new component state.
+**Step 3:** Define “transition” functions which will be called when any of the specified parameters (in “With” decorator) have just changed. The functions should return a difference object (Partial&lt;TState&gt;) which will be used to create a new component state.
 
 ```ts
 import { With } from "ng-set-state";
@@ -65,6 +65,15 @@ export class State {
 }
 ```
 _Note: all property names specified inside __@With__ decorator are validated by TypeScript. If you specify a name of a not existing property you will get a compilation error._
+
+Optionally, you can mark the “transition” function with __Debounce(..ms..)__ options - it delays calling “transition” function if dependencies keep changing:
+
+```ts
+@With("property1").Debounce(1000)
+public static calcProperty3(previousState: State): Partial<State>|null{
+    ...
+}
+```
 
 **Step 3 (alternative):** a “transformation” function can defined using __@Calc__ decorator under a state property. That approach is applicable when you need to update just a single property (unlike __@With__ decorator that allows changing several properties simultaneously) which depends on other state properties:
 
@@ -196,7 +205,7 @@ export class SomeComponent extends WithStateBase<State> {
 }
 ```
 
-It is possible to call **modify** method directly from template – Angular AoT will check that such calls are correct.
+_Note: It is possible to call **modify** method directly from template – Angular AoT will check that such calls are correct._
 
 **Step 7:** Add state modifiers for actions that do relate to value changes (e.g. a button click )
 ```ts
@@ -292,7 +301,7 @@ Optionally, you can specify a behavior in a situation when the same transition f
 
     @WithAsync("data").OnConcurrentLaunchCancel()
 ```
-Optionally, you can specify a behavior in a situation when transition function throws an unhandled error:
+Also you can specify a behavior in a situation when transition function throws an unhandled error:
 ```ts
     @WithAsync("data").OnErrorCall((getCurrentState:()=>State)=>Partial<State>|null)
 
@@ -301,6 +310,11 @@ Optionally, you can specify a behavior in a situation when transition function t
     @WithAsync("data").OnErrorThrow()//Default
 ```
 
+In addition, you can mark the “transition” function with __Debounce(..ms..)__ options - it delays calling “transition” function if dependencies keep changing:
+
+```ts
+@WithAsync("data").Debounce(1000)
+```
 **Step 4** (Optional) You can specify asynchronous locks ids:
 ```ts
 import { AsyncInit, WithAsync } from 'ng-set-state';
@@ -398,8 +412,9 @@ Locks prevent concurrent launching
         return {
             someProperty3: currentState.someProperty1 + currentState.someProperty2,
         }
-    }
+    }    
   ```
+
   You can also get access to a previous state (2-nd argument) and changes between a current sate and the previous one (3-rd argument)
   ```ts
     @With("someProperty1", "someProperty2",)
@@ -421,7 +436,7 @@ Locks prevent concurrent launching
         @AsyncInit().Locks("init")
         public static async init(getState: ()=> State): Promise<Partial<State|null>>{
             const initialState: State = getState();
-            const data = await initialState.getData();
+            const data = await initialState.api.getData();
             return {data: data};
         }
     ```   
@@ -431,7 +446,7 @@ Locks prevent concurrent launching
         @WithAsync("data")
         public static async init(getState: ()=> State): Promise<Partial<State|null>>{
             const initialState: State = getState();
-            await initialState.save(initialState.data);
+            await initialState.api.save(initialState.data);
             return null;
         }
     ```
@@ -445,6 +460,31 @@ Locks prevent concurrent launching
     * OnErrorForget()
     * OnErrorCall(method: (currentState: TState, error: any) => Partial<TState> | null)
     * Locks(...lockIds: string[])
+    * Debounce(..ms..:number)
+
+  You can also get access to a previous state (2-nd argument) and changes between a current sate and the previous one (3-rd argument) like in __@With__ decorator.
+
+  The first function also implements __AsyncContext__ interface, so you can check if an asynchronous "transition" function is cancelled:
+  
+  ```ts
+   @WithAsync("editingData").OnConcurrentLaunchReplace()
+   public static async validate(getState: AsyncContext): Promise<Partial<State|null>>{
+         const initialState: State = getState();
+         const correct = await initialState
+             .api.validate(initialState.editingData);
+
+         if(getState.isCancelled()) {
+             //editingData has changed during api.validate
+             //no need to continue
+             return null;
+         }
+
+         const correct2 = await initialState
+             .api2.validate(initialState.editingData);
+
+         return { valid: correct1 && correct2 };
+     }
+  ```
 
 <a name="explanation"/>
 

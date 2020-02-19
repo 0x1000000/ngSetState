@@ -1,3 +1,6 @@
+## 1.1.0
+* **Debounce(..ms..)**: a new modifier option that delays calling the modifier if dependencies keep changing.
+
 ## 1.0.2
 * **BUG FIX**: Compatibility with IVY renderer
 
@@ -28,9 +31,9 @@
 * **onAfterStateApplied** - can receive a previous state as an argument;
 * **BREAKING CHANGE**: All components that use @WithState decorator have to implement the new method "modifyStateDiff"
 ## 0.0.2
-* Update documnetation
+* Update documentation
 * **"module":"commonjs"** - now the library can be used with system.js
 ## 0.0.1
-* Update documnetation
+* Update documentation
 ## 0.0.0
-* Firts Release
+* First Release

@@ -108,6 +108,9 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             if (debounceMs != null) {
                 throw new Error("function Debounce(...) has been called several times");
             }
+            if(inDebounceMs == null || inDebounceMs <= 0){
+                throw new Error("Debounce time should be greater than zero");
+            }
             debounceMs = inDebounceMs;
             return result;
         }
