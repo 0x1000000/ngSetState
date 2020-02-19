@@ -1,4 +1,5 @@
 import { Constructor, AsyncContext } from './../api/common';
+import { IWithState } from "../api/i_with_state";
 
 export const STATE_META = "__state_meta__";
 
@@ -24,9 +25,13 @@ export interface Modifier<TState> {
 }
 
 export interface AsyncModifier<TState> {
-    (currentSate: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Partial<TState> | null;    
+    (currentSate: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState>> | null;    
 
     asyncData: AsyncData;
+}
+
+export interface ConComponent<TState> {
+    getComponent: () => IWithState<TState>;
 }
 
 export function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifier<TState>): modifier is AsyncModifier<TState> {

@@ -3,7 +3,7 @@
     "baseUrl": "./src",
     "rootDir": "./src",
     "outDir": "./dist",
-    "sourceMap": true,
+    "sourceMap": false,
     "declaration": true,
     "module": "es6",
     "moduleResolution": "node",

@@ -1,19 +1,42 @@
-import { Constructor } from './../../api/common';
-import { AsyncData } from './../../impl/domain';
+import { Constructor, AsyncContext } from './../../api/common';
+import { AsyncData, AsyncModifier, ConComponent } from './../../impl/domain';
 import { Functions } from './../../impl/functions';
+import { delayMs, cmpByPropsAll } from "../../impl/utils";
+import { AsyncState } from "../../impl/async_state";
 
 export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAndAllOptions<TState>{
 
     const asyncData: AsyncData = {
         locks: [],
         behaviourOnConcurrentLaunch: "putAfter",
-        behaviourOnError: "throw",
+        behaviourOnError: "throw"
     };
 
+    let debounceMs: number | null = null;
+
     const result: IWithAsyncAndAllOptions<TState> = <any>
-        ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
-            return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData);
-        });
+    ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+
+        if (debounceMs != null) {
+
+            const debounceAsyncData: AsyncData = {
+                locks: null,
+                behaviourOnConcurrentLaunch: "replace",
+                behaviourOnError: "throw"
+            };
+
+            return Functions.addModifier(
+                target,
+                propertyKey,
+                { value: buildDebounceModifierFun<TState>(propNames, debounceMs, descriptor.value, asyncData) },
+                propNames,
+                debounceAsyncData);
+
+
+        }
+
+        return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData);
+    });
 
     const checks: { onConcurrent: boolean, locks: boolean, onError: boolean } = {onConcurrent: false, locks: false, onError: false};
 
@@ -79,6 +102,14 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             checkOnError();
             asyncData.behaviourOnError = { callMethod: method };
             return result;
+        },
+        Debounce: (inDebounceMs: number) => {
+
+            if (debounceMs != null) {
+                throw new Error("function Debounce(...) has been called several times");
+            }
+            debounceMs = inDebounceMs;
+            return result;
         }
     }
 
@@ -87,7 +118,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
     return result;
 }
 
-export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState>;
+export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState> & IWithAsyncTimeFunctions<TState>;
 
 export type IWithAsyncAndAllOptions<TState> = IWithAsync<TState> & IWithAsyncAllOptions<TState>;
 
@@ -108,6 +139,33 @@ export interface IWithAsyncOnError<TState> {
     OnErrorCall(method: (currentState: TState, error: any)=> Partial<TState>|null): IWithAsyncAndAllOptions<TState>;
 }
 
+export interface IWithAsyncTimeFunctions<TState> {
+    Debounce(timeMs: number): IWithAsyncAndAllOptions<TState>;
+}
+
+
 export interface IWithAsync<TState> {
     (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor);
+}
+
+
+function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, fun: AsyncModifier<TState>, asyncData: AsyncData) {
+
+    async function debounceModifierFun<TState>(getState: AsyncContext<TState> & ConComponent<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
+
+        await delayMs(debounceMs);
+
+        if (!getState.isCancelled()) {
+            const currentState = getState();
+            if (!cmpByPropsAll(originalState, currentState, propNames as string[])) {
+
+                fun.asyncData = asyncData;
+
+                AsyncState.pushModifiers<any>(getState.getComponent(), [fun], originalState, diff);
+            }
+        }
+        return null;
+    }
+
+    return debounceModifierFun;
 }

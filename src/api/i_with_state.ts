@@ -1,6 +1,7 @@
 import { OnChanges } from "@angular/core";
 
 export interface IWithState<TState> extends OnChanges {
+
     state: TState;
 
     modifyState(propName: keyof TState, value: any): boolean;

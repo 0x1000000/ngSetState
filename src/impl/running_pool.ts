@@ -23,7 +23,6 @@ export class RunningPool<TState> {
             else if (behaviour === "cancel") {
                 return null;
             }
-
             else if (behaviour === "putAfter") {
                 running.next = modifier;
                 return null;

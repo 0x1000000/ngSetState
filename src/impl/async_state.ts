@@ -1,5 +1,5 @@
 import { RunningPool } from "./running_pool";
-import { AsyncModifier, ASYNC_STATE } from './domain';
+import { AsyncModifier, ASYNC_STATE, ConComponent } from './domain';
 import { IWithState } from './../api/i_with_state';
 import { checkPromise } from './utils';
 import { AsyncContext } from "../api/common";
@@ -46,11 +46,21 @@ export class AsyncState<TState> {
             return;
         }
         const [id, oldId] = ids;
-       
+
+        //A task can be replaced by another one that is why the original state is required
+        let originalState = previousState;
+        let originalDiff = diff;
+
+        if (oldId != null) {
+            const oldRunning = this._pool.getById(oldId);
+            originalState = oldRunning.originalState;
+            originalDiff = oldRunning.originalDiff;
+        }
+
         const promise = (async () => {
             try {
 
-                const res = mod(this.createAsyncContext(id), previousState, diff);
+                const res = mod(this.createAsyncContext(id), originalState, originalDiff);
                 if (!checkPromise(res)) {
                     throw new Error("Async modifier should return a promise");
                 }
@@ -89,14 +99,16 @@ export class AsyncState<TState> {
             }
         })();
 
-        this._pool.addNewAndDeleteOld(id, promise, mod, oldId, previousState, diff);
+        this._pool.addNewAndDeleteOld(id, promise, mod, oldId, originalState, originalDiff);
     }
 
-    private createAsyncContext(id: number): AsyncContext<TState> {
+    private createAsyncContext(id: number): AsyncContext<TState> & ConComponent<TState> {
 
-        const result = (() => this._component.state) as AsyncContext<TState>;
+        const result = (() => this._component.state) as AsyncContext<TState> & ConComponent<TState>;
 
         result.isCancelled = () => !this._pool.exists(id);
+
+        result.getComponent = () => this._component;
 
         return result;
     }

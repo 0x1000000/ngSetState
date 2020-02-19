@@ -6,5 +6,6 @@ export interface NgComponentType extends Constructor<OnChanges> { }
 
 export interface AsyncContext<TState> {
     (): TState;
+
     isCancelled: () => boolean;
 }
