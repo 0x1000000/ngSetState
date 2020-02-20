@@ -1,17 +1,12 @@
-<div class="l-horizontal-pane">
-    <h2>Dropdown</h2>
-    <drop-down [items]="state.countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
-</div>
-
-<div class="l-horizontal-pane">
-    <h2>Dropdown 2 (mirror)</h2>
-    <drop-down [items]="state.countryList"
-               idMember="code"
-               textMember="name"
-               [selected]="state.selectedCountry"
-               (selectedChange)="modifyState('selectedCountry', $event)"
-               [itemTemplate]="state.itemTemplate"></drop-down>
-</div>
+<drop-down [items]="state.countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
+<h2>Dropdown 2 (mirror)</h2>
+<drop-down [items]="state.countryList"
+            idMember="code"
+            textMember="name"
+            [selected]="state.selectedCountry"
+            (selectedChange)="modifyState('selectedCountry', $event)"
+            [itemTemplate]="state.itemTemplate">
+</drop-down>
 <div>
     <checkbox [checked]="state.useCustomTemplate" (checkedChange)="modifyState('useCustomTemplate', $event)">
         Use custom item template for the second dropdown (with a country flag)
