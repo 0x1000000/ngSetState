@@ -21,8 +21,11 @@ export class Functions {
         //Compatibility with IVY
         if (ɵɵNgOnChangesFeature != null) {
 			const componentDef = (<any>component).constructor.ɵcmp;
-			if(componentDef != null){
-                ɵɵNgOnChangesFeature()(componentDef);
+            if (componentDef != null) {
+                const fResult = ɵɵNgOnChangesFeature(componentDef);
+                if (fResult != null && typeof fResult === "function") {
+                    (fResult as any)(componentDef);//Compatibility with early 9 versions https://github.com/angular/angular/commit/9cf85d21775c259bc580d43a729283856db82757#diff-d44767251b34bbd5465b96d3befb92b6
+                }
 			}
         }
 

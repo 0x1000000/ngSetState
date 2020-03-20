@@ -2,7 +2,6 @@ import { Component, SimpleChanges, ChangeDetectionStrategy } from '@angular/core
 import { WithState, IWithState } from "ng-set-state";
 import { RadioListState, ItemView } from "./radio-list.state";
 
-@WithState(RadioListState, RadioListState.ngInputs, RadioListState.ngOutputs)
 @Component({
     selector: 'radio-list',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -10,6 +9,7 @@ import { RadioListState, ItemView } from "./radio-list.state";
     inputs: RadioListState.ngInputs,
     outputs: RadioListState.ngOutputs
 })
+@WithState(RadioListState, RadioListState.ngInputs, RadioListState.ngOutputs)
 export class RadioListComponent implements IWithState<RadioListState>{
 
     public state: RadioListState;

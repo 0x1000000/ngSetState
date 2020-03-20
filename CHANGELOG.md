@@ -1,3 +1,6 @@
+## 1.1.1
+* **BUG FIX**: Compatibility with Angular 9.0.7
+
 ## 1.1.0
 * **Debounce(..ms..)**: a new modifier option that delays calling the modifier if dependencies keep changing.
 

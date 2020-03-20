@@ -6,6 +6,7 @@ A library that helps developing angular components in a more functional style wh
 
 * [Demo Site](https://0x1000000.github.io/ngSetState/)
 * [Demo Code](https://github.com/0x1000000/ngSetState/tree/master/demo/src/app)
+* [CHANGELOG](https://github.com/0x1000000/ngSetState/blob/master/CHANGELOG.md)
 
 ## Advantages of using the library
 
