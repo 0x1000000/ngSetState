@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ElementRef, OnInit, OnDestroy, ChangeDetectorRef, HostBinding, HostListener, ViewChild, TemplateRef } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, OnInit, OnChanges, SimpleChanges, OnDestroy, ChangeDetectorRef, HostBinding, HostListener, ViewChild, TemplateRef } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { SelectListState, ViewItem, ItemTemplateContext } from './select-list.state';
 
@@ -9,7 +9,7 @@ import { SelectListState, ViewItem, ItemTemplateContext } from './select-list.st
     inputs: SelectListState.ngInputs,
     outputs: SelectListState.ngOutputs
 })
-export class SelectListComponent extends WithStateBase<SelectListState> implements OnInit, OnDestroy {
+export class SelectListComponent extends WithStateBase<SelectListState> implements OnInit, OnChanges, OnDestroy {
 
     public state: SelectListState;
 
@@ -29,6 +29,10 @@ export class SelectListComponent extends WithStateBase<SelectListState> implemen
 
     public ngAfterViewInit(): void {
         this.modifyState("itemTemplateDefault", this.itemTemplateDefault);
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 
     public ngOnDestroy(): void {

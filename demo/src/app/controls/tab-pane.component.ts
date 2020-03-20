@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnChanges, SimpleChanges } from '@angular/core';
 import { WithStateBase } from 'ng-set-state';
 import { TabPaneState } from "./tab-pane.state";
 
@@ -9,16 +9,19 @@ import { TabPaneState } from "./tab-pane.state";
     inputs: TabPaneState.ngInputs,
     outputs: TabPaneState.ngOutputs
 })
-export class TabPaneComponent extends WithStateBase<TabPaneState>
+export class TabPaneComponent extends WithStateBase<TabPaneState> implements OnChanges
 {
     constructor(private readonly _cd: ChangeDetectorRef) {
         super(new TabPaneState(), TabPaneState.ngInputs, TabPaneState.ngOutputs);
     }
 
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
+    }
+
     public ensureId(): void {
         this.modifyStateDiff(this.state.withEnsuredId());
     }
-
 
     public setVisibility(isVisible: boolean): boolean {
         this.modifyState("isVisible", isVisible);

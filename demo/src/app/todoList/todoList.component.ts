@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { TodoListState } from './todoList.state';
 import { TodoService, TodoItem } from './TodoService';
@@ -12,7 +12,7 @@ import { StateStorageService } from "../StateStorageService";
     outputs: TodoListState.ngOutputs,
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TodoListComponent extends WithStateBase<TodoListState> implements OnDestroy {
+export class TodoListComponent extends WithStateBase<TodoListState> implements OnChanges, OnDestroy {
 
     private static readonly storageKey = "todoListState";
 
@@ -32,6 +32,10 @@ export class TodoListComponent extends WithStateBase<TodoListState> implements O
                     this.modifyStateDiff(state);
                 }
             });
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 
     async ngOnDestroy() {

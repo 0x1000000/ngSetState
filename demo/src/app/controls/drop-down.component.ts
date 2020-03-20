@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy, AfterViewInit, HostBinding, HostListener, ElementRef, TemplateRef, ViewChild } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnChanges, SimpleChanges, OnDestroy, AfterViewInit, HostBinding, HostListener, ElementRef, TemplateRef, ViewChild } from '@angular/core';
 import { trigger, state, transition, animate, style } from '@angular/animations';
 import { WithStateBase } from "ng-set-state";
 import { DropDownState } from "./drop-down.state";
@@ -17,7 +17,7 @@ import { DropDownState } from "./drop-down.state";
         ]),
     ],
 })
-export class DropDownComponent extends WithStateBase<DropDownState> implements OnInit, OnDestroy, AfterViewInit {
+export class DropDownComponent extends WithStateBase<DropDownState> implements OnInit, OnChanges, OnDestroy, AfterViewInit {
 
     public state: DropDownState;
 
@@ -37,6 +37,10 @@ export class DropDownComponent extends WithStateBase<DropDownState> implements O
 
     public ngAfterViewInit(): void {
         this.modifyState("itemTemplateDefault", this.itemTemplateDefault);
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 
     public ngOnDestroy(): void {

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnChanges, SimpleChanges } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { CalculatorState } from "./calculator.state";
 import { StateStorageService } from "../StateStorageService";
@@ -11,8 +11,12 @@ import { StateStorageService } from "../StateStorageService";
     inputs: CalculatorState.ngInputs,
     outputs: CalculatorState.ngOutputs
 })
-export class CalculatorComponent extends WithStateBase<CalculatorState> {
+export class CalculatorComponent extends WithStateBase<CalculatorState> implements OnChanges {
     constructor() {
         super(new CalculatorState(), CalculatorState.ngInputs, CalculatorState.ngOutputs);
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 }

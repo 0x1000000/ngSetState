@@ -1,4 +1,4 @@
-import { Component, QueryList, ChangeDetectionStrategy, ContentChildren, AfterContentInit, ChangeDetectorRef } from '@angular/core';
+import { Component, QueryList, ChangeDetectionStrategy, ContentChildren, AfterContentInit, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { TabPaneComponent } from "./tab-pane.component";
 import { WithStateBase } from "ng-set-state";
 import { TabsState, TabLabel } from "./tabs.state";
@@ -11,7 +11,7 @@ import { TabsState, TabLabel } from "./tabs.state";
     outputs: TabsState.ngOutputs
 
 })
-export class TabsComponent extends WithStateBase<TabsState> implements AfterContentInit
+export class TabsComponent extends WithStateBase<TabsState> implements AfterContentInit, OnChanges
 {
     @ContentChildren(TabPaneComponent)
     public readonly panesQuery:QueryList<TabPaneComponent>;
@@ -26,6 +26,10 @@ export class TabsComponent extends WithStateBase<TabsState> implements AfterCont
             this._cd.markForCheck();
         });
         this.panesQuery.changes.subscribe(this.onPaneChanged);
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 
     public readonly onPaneChanged = () => {

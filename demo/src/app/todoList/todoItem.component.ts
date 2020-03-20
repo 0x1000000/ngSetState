@@ -1,4 +1,4 @@
-import { Component, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, HostListener, ChangeDetectionStrategy, OnChanges, SimpleChanges } from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { TodoItemState } from './todoItem.state';
 
@@ -9,10 +9,14 @@ import { TodoItemState } from './todoItem.state';
     inputs: TodoItemState.ngInputs,
     outputs: TodoItemState.ngOutputs
 })
-export class TodoItemComponent extends WithStateBase<TodoItemState> {
+export class TodoItemComponent extends WithStateBase<TodoItemState> implements OnChanges {
 
     constructor() {
         super(new TodoItemState(), TodoItemState.ngInputs, TodoItemState.ngOutputs);
+    }
+
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
     }
 
     @HostListener("click")
@@ -32,11 +36,11 @@ export class TodoItemComponent extends WithStateBase<TodoItemState> {
         ev.stopPropagation();
         this.modifyStateDiff(this.state.withEditMode());
     }
-    
+
     public onCompleteClick(ev: Event) {
         ev.stopImmediatePropagation();
         ev.stopPropagation();
-        this.modifyStateDiff(this.state.withCompleted());        
+        this.modifyStateDiff(this.state.withCompleted());
     }
 
     public onDeleteClick(ev: Event) {

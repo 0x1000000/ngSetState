@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy, OnInit, AfterViewInit, ViewChild} from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy, OnChanges, SimpleChanges, OnInit, AfterViewInit, ViewChild} from '@angular/core';
 import { WithStateBase } from "ng-set-state";
 import { DropDownDemoState } from "./drop-down-demo.state";
 
@@ -9,7 +9,7 @@ import { DropDownDemoState } from "./drop-down-demo.state";
     inputs: DropDownDemoState.ngInputs,
     outputs: DropDownDemoState.ngOutputs,
 })
-export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> implements OnInit, OnDestroy, AfterViewInit {
+export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> implements OnInit, OnChanges, OnDestroy, AfterViewInit {
 
     public state: DropDownDemoState;
 
@@ -21,6 +21,10 @@ export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> impl
 
     @ViewChild("itemTemplateCustom", { static: true })
     public itemTemplateCustom: any;
+    
+    public ngOnChanges(changes: SimpleChanges): void {
+        super.ngOnChanges(changes);
+    }
 
     public ngOnDestroy(): void {
         this.isDestroyed = true;

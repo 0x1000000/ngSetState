@@ -17,6 +17,15 @@ A library that helps developing angular components in a more functional style wh
 4. [Explanation](#explanation)
 <a name="get_satrted"/>
 
+## Known Issue with IVY!
+
+If you use Angular 9 with enabled IVY renderer then change detection might work incorrectly in some cases. it is recommended to implicitly implement ```ngOnChanges``` in components that inherit ```WithStateBase```:
+```ts
+  public ngOnChanges(changes: SimpleChanges): void {
+    super.ngOnChanges(changes);
+  }
+```
+
 ## 1. Get Started
 
 **Step 1:** Install ng-set-state
