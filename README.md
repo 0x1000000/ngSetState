@@ -4,7 +4,7 @@
 
 A library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.
 
-* [Angular Components with Extracted Immutable State](https://medium.com/@0x1000000/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3) - an article on Medium that explains the ideas of this library
+* [Angular Components with Extracted Immutable State](https://medium.com/@0x1000000/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3) - an article on Medium that explains the ideas of this library.
 * [Demo Site](https://0x1000000.github.io/ngSetState/)
 * [Demo Code](https://github.com/0x1000000/ngSetState/tree/master/demo/src/app)
 
@@ -324,6 +324,15 @@ In addition, you can mark the “transition” function with __Debounce(..ms..)_
 ```ts
 @WithAsync("data").Debounce(1000)
 ```
+
+In a case if some field triggers some async action you can use **If** and **Finally** decorator extensions to check preconditions and and set postconditions regardless results of the action:
+
+```ts
+@WithAsync("dataToSave").If(s=>s.dataToSave != null).Finally(()=>{dataToSave: null})
+public static save(getCurrentState: ()=>TState): Promise<Partial<TState>>
+```
+
+
 **Step 4** (Optional) You can specify asynchronous locks ids:
 ```ts
 import { AsyncInit, WithAsync } from 'ng-set-state';

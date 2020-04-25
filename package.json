@@ -1,6 +1,6 @@
 {
   "name": "ng-set-state",
-  "version": "1.1.1",
+  "version": "1.1.3",
   "description": "Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

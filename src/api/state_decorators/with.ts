@@ -15,7 +15,9 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
                 const asyncData: AsyncData = {
                     locks: null,
                     behaviourOnConcurrentLaunch: "replace",
-                    behaviourOnError: "throw"
+                    behaviourOnError: "throw",
+                    predicate: null,
+                    finalizer: null
                 };
 
                 return Functions.addModifier(

@@ -46,6 +46,8 @@ export type AsyncData =
     locks: string[] | null,
     behaviourOnConcurrentLaunch: BehaviourOnConcurrentLaunch;
     behaviourOnError: BehaviourOnError;
+    predicate: ((state: any) => boolean) | null;
+    finalizer: (() => any) | null;
 }
 
 export type RunningModifier<TState> = {

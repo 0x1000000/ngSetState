@@ -317,6 +317,67 @@ describe('Asynchronous locks tests', () => {
     });
 });
 
+describe('If,Finally', () => {
+    it("with callback", async () => {
+        const component = new TestIfFinallyComponent();
+
+        expect(component.state.arg1).toBe(null);
+        expect(component.state.result).toBe("no");
+
+        let exception: any = null;
+        try {
+            component.modifyState("arg1", "error");
+            await component.whenAll();
+        } catch (e) {
+            exception = e;
+        }
+
+        await component.whenAll();//callback -- we need to wait for it!
+
+        expect(component.state.arg1).toBe("init");
+        expect(component.state.result).toBe("no");
+        expect(exception).toBe("exception");
+
+        component.modifyState("arg1", "success");
+        expect(component.state.arg1).toBe("success");
+        await component.whenAll();
+
+        await component.whenAll();//callback -- we need to wait for it!
+
+        expect(component.state.arg1).toBe("init");
+        expect(component.state.result).toBe("yes");
+
+    });
+
+    it("without callback", async () => {
+        const component = new TestIfFinallyComponent();
+
+        expect(component.state.arg2).toBe(null);
+        expect(component.state.result).toBe("no");
+
+        let exception: any = null;
+        try {
+            component.modifyState("arg2", "error");
+            await component.whenAll();
+        } catch (e) {
+            exception = e;
+        }
+
+        expect(component.state.arg2).toBe("init");
+        expect(component.state.result).toBe("no");
+        expect(exception).toBe("exception");
+
+        component.modifyState("arg2", "success");
+        expect(component.state.arg2).toBe("success");
+        await component.whenAll();
+
+        expect(component.state.arg2).toBe("init");
+        expect(component.state.result).toBe("yes");
+
+    });
+});
+
+
 class TestOnConcurrentLaunchComponent extends WithStateBase<TestOnConcurrentLaunchState> {
     constructor(operation: () => Promise<any>) {
         super(new TestOnConcurrentLaunchState(operation), null, null);
@@ -503,5 +564,52 @@ class TestLocksAsyncInitState {
 
         return { result: getCurrentState().result + getCurrentState().arg1 };
     }
+}
 
+class TestIfFinallyComponent extends WithStateBase<TestIfFinally> {
+
+    constructor() {
+        super(new TestIfFinally(), null, null);
+    }
+
+}
+class TestIfFinally {
+
+    public readonly arg1: null | "init" | "success" | "error" = null;
+
+    public readonly arg2: null | "init" | "success" | "error" = null;
+
+    public readonly result: "no" | "yes" = "no";
+
+    @WithAsync("arg1").Finally(()=>({ arg1: "init"}))
+    public static async onArg1(getCurrentState: () => TestIfFinally): Promise<Partial<TestIfFinally>|null> {
+        const currentState = getCurrentState();
+
+        await delayMs(1);
+
+        if (currentState.arg1 === "error") {
+            throw "exception";
+        }
+
+        if (currentState.arg1 === "success") {
+            return { result: "yes" };
+        }
+        return null;
+    }
+
+    @WithAsync("arg2").If(s => s.arg2 !== "init").Finally(() => ({ arg2: "init" }))
+    public static async onArg2(getCurrentState: () => TestIfFinally): Promise<Partial<TestIfFinally>|null> {
+        const currentState = getCurrentState();
+
+        await delayMs(1);
+
+        if (currentState.arg2 === "error") {
+            throw "exception";
+        }
+
+        if (currentState.arg2 === "success") {
+            return { result: "yes" };
+        }
+        return null;
+    }
 }

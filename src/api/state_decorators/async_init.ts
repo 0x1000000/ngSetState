@@ -9,10 +9,11 @@ export function AsyncInit<TState>(): IWithAsync<TState> & IAsyncInitLocks<TState
         locks: [],
         behaviourOnConcurrentLaunch: "concurrent",
         behaviourOnError: "throw",
+        finalizer: null,
+        predicate: null
     };
 
-    const result: IWithAsync<TState> =
-        ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const result: IWithAsync<TState> = ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
 
             const stateMeta = Functions.ensureStateMeta(target);
 

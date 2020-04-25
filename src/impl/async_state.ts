@@ -34,7 +34,9 @@ export class AsyncState<TState> {
     private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
         if (modifiers && modifiers.length > 0) {
             for (const mod of modifiers) {
-                this.registerAndLaunchModifier(mod, previousState, diff);
+                if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
+                    this.registerAndLaunchModifier(mod, previousState, diff);
+                }
             }
         }
     }
@@ -58,6 +60,7 @@ export class AsyncState<TState> {
         }
 
         const promise = (async () => {
+            let finalized: boolean = false;
             try {
 
                 const res = mod(this.createAsyncContext(id), originalState, originalDiff);
@@ -72,26 +75,39 @@ export class AsyncState<TState> {
                 } catch (error) {
                     asyncDiff = null;
                     if (mod.asyncData.behaviourOnError === "forget") {
-                    }
-                    else if (mod.asyncData.behaviourOnError === "throw") {
+                    } else if (mod.asyncData.behaviourOnError === "throw") {
                         throw error;
-                    }
-                    else if (mod.asyncData.behaviourOnError.callMethod != null) {
+                    } else if (mod.asyncData.behaviourOnError.callMethod != null) {
                         const errorDiff = mod.asyncData.behaviourOnError.callMethod(this._component.state, error);
                         if (errorDiff != null) {
                             this._component.modifyStateDiff(errorDiff);
                         }
-                    }
-                    else {
+                    } else {
                         throw new Error("Unknown error behaviour: " + mod.asyncData.behaviourOnError);
                     }
                 }
 
-                if (this._pool.exists(id) && asyncDiff != null) {//if was not replaced
-                    this._component.modifyStateDiff(asyncDiff);
+                if (this._pool.exists(id)) {//if was not replaced
+                    if (mod.asyncData.finalizer != null) {
+                        const finalDiff = mod.asyncData.finalizer();
+                        if (finalDiff != null) {
+                            asyncDiff = asyncDiff == null ? finalDiff : Object.assign(asyncDiff, finalDiff);
+                        }
+                    }
+                    if (asyncDiff != null) {
+                        this._component.modifyStateDiff(asyncDiff);
+                        finalized = true;
+                    }
                 }
 
             } finally {
+
+                if (mod.asyncData.finalizer != null && !finalized && this._pool.exists(id)) { //if was not replaced
+                    const finalDiff = mod.asyncData.finalizer();
+                    if (finalDiff != null) {
+                        this._component.modifyStateDiff(finalDiff);
+                    }
+                }
                 const pending = this._pool.deleteByIdAndGetPendingModifier(id);
                 if (pending != null) {
                     this.registerAndLaunchModifier(pending, previousState, diff);

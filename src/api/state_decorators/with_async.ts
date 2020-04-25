@@ -9,7 +9,9 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
     const asyncData: AsyncData = {
         locks: [],
         behaviourOnConcurrentLaunch: "putAfter",
-        behaviourOnError: "throw"
+        behaviourOnError: "throw",
+        predicate: null,
+        finalizer: null
     };
 
     let debounceMs: number | null = null;
@@ -22,7 +24,9 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             const debounceAsyncData: AsyncData = {
                 locks: null,
                 behaviourOnConcurrentLaunch: "replace",
-                behaviourOnError: "throw"
+                behaviourOnError: "throw",
+                predicate: null,
+                finalizer: null
             };
 
             return Functions.addModifier(
@@ -38,29 +42,19 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
         return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData);
     });
 
-    const checks: { onConcurrent: boolean, locks: boolean, onError: boolean } = {onConcurrent: false, locks: false, onError: false};
+    const checks: Checks = { onConcurrent: false, locks: false, onError: false, if: false, finally: false };
 
-    const checkOnConcurrent = () => {
-        if (checks.onConcurrent) {
-            throw new Error("function OnConcurrent...() has been called several times");
+    const checkGeneric = (prop: keyof Checks, name: string) => {
+        if (checks[prop]) {
+            throw new Error(`function ${name}() has been called several times`);
         } else {
-            checks.onConcurrent = true;
+            checks[prop] = true;
         }
     };
-    const checkLocks = () => {
-        if (checks.locks) {
-            throw new Error("function Locks() has been called several times");
-        } else {
-            checks.locks = true;
-        }
-    };
-    const checkOnError = () => {
-        if (checks.onError) {
-            throw new Error("function OnError...() has been called several times");
-        } else {
-            checks.locks = true;
-        }
-    };
+
+    const checkOnConcurrent = () => checkGeneric("onConcurrent", "OnConcurrent...");
+    const checkLocks = () => checkGeneric("locks", "Locks");
+    const checkOnError = () => checkGeneric("onError", "OnError...");
 
     const optional: IWithAsyncAllOptions<TState> = {
         OnConcurrentLaunchCancel: () => {
@@ -113,6 +107,16 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             }
             debounceMs = inDebounceMs;
             return result;
+        },
+        If: (predicate: (currentState: TState) => boolean) => {
+            checkGeneric("if", "If");
+            asyncData.predicate = predicate;
+            return result;
+        },
+        Finally: (method: () => Partial<TState> | null) => {
+            checkGeneric("finally", "Finally");
+            asyncData.finalizer = method;
+            return result;
         }
     }
 
@@ -121,7 +125,9 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
     return result;
 }
 
-export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState> & IWithAsyncTimeFunctions<TState>;
+type Checks = { onConcurrent: boolean, locks: boolean, onError: boolean, if: boolean, finally: boolean };
+
+export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState> & IWithAsyncTimeFunctions<TState> & IWithAsyncPrePostFunctions<TState>;
 
 export type IWithAsyncAndAllOptions<TState> = IWithAsync<TState> & IWithAsyncAllOptions<TState>;
 
@@ -144,6 +150,11 @@ export interface IWithAsyncOnError<TState> {
 
 export interface IWithAsyncTimeFunctions<TState> {
     Debounce(timeMs: number): IWithAsyncAndAllOptions<TState>;
+}
+
+export interface IWithAsyncPrePostFunctions<TState> {
+    If(predicate: (currentState: TState) => boolean): IWithAsyncAndAllOptions<TState>;
+    Finally(method: () => Partial<TState> | null): IWithAsyncAndAllOptions<TState>;
 }
 
 

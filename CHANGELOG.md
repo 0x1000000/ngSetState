@@ -1,3 +1,7 @@
+## 1.1.3
+* **@WithAsync(keyof T).If(predicate: (t:T)=>boolean)**: new decorator extension that can prevent an async transition function calling
+* **@WithAsync(keyof T).Finally(finalState: ()=>Partial&lt;T&gt;)**: new decorator extension that can apply some state difference after an async transition function calling regardless its result
+
 ## 1.1.1
 * **BUG FIX**: Compatibility with Angular 9.0.7
 
