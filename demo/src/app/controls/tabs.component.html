@@ -4,8 +4,12 @@
              #labelElement
              class="l-tab-label"
              [class.l-tab-label-selected]="label.selected"
-             (click)="onLabelClick(labelElement, label)">
-             {{label.title}}
+             (click)="onLabelClick(labelElement, label)"
+             [life-cycle]
+             (onInit)="onLabelCreated(label, labelElement)"
+             (onDestroy)="onLabelDestroyed(label, labelElement)">
+            {{label.title}}
+
         </div>
         <div class="l-ink-bar" [style.left.px]="state.barOffset" [style.width.px]="state.barWidth"></div>
     </div>

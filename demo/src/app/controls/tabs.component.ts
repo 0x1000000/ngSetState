@@ -24,8 +24,24 @@ export class TabsComponent extends WithStateBase<TabsState> implements AfterCont
         setTimeout(() => {
             this.onPaneChanged();
             this._cd.markForCheck();
-        });
+        });//
         this.panesQuery.changes.subscribe(this.onPaneChanged);
+    }
+
+    public onLabelCreated(label: TabLabel, labelElement: HTMLElement): void {
+        const diff = this.state.onLabelCreated(label, labelElement);
+        if (diff != null) {
+            this.modifyStateDiff(diff);
+            this._cd.detectChanges();
+        }
+    }
+
+    public onLabelDestroyed(label: TabLabel, labelElement: HTMLElement): void {
+        const diff = this.state.onLabelDestroyed(label, labelElement);
+        if (diff != null) {
+            this.modifyStateDiff(diff);
+            this._cd.detectChanges();
+        }
     }
 
     public ngOnChanges(changes: SimpleChanges): void {
@@ -37,10 +53,6 @@ export class TabsComponent extends WithStateBase<TabsState> implements AfterCont
     };
 
     public onLabelClick(labelElement: HTMLElement, label: TabLabel) {
-        this.modifyStateDiff({
-            selectedId: label.id,
-            barOffset: labelElement.offsetLeft,
-            barWidth: labelElement.offsetWidth
-        });
+        this.modifyState("selectedId", label.id);
     }
 }
