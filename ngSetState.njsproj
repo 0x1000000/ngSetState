@@ -46,6 +46,7 @@
     <TypeScriptCompile Include="src\api\i_with_state.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\async_init.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\calc.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\emitter.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\in.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\out.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\with.ts" />

@@ -503,3 +503,27 @@ Locks prevent concurrent launching
          return { valid: correct1 && correct2 };
      }
   ```
+  * **Emitter()**: decorator for state fields. If this decorator is specified for some state filed that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference. The decorator can be used to create a "trigger" which will be used to perform some action:
+  ```ts
+  class SomeState{
+      ... 
+      @Emitter()
+      public readonly someAction: string;
+      ...
+
+      @With("someAction")
+      public static doSomeAction(currentState: SomeState): Partial<SomeState> {
+          ...
+      }
+  } 
+  ```
+    Also it can be can be used together with **@Out()** decorator to emit the same value from your component:
+  ```ts
+  class SomeState{
+      ... 
+      @Out()
+      @Emitter()
+      public readonly outProperty: string;
+      ...
+  } 
+  ```    

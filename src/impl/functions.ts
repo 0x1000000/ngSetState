@@ -98,7 +98,9 @@ export class Functions {
     }
 
     public static modifyState<TState, TK extends keyof TState>(component: IWithState<TState>, propName: TK, value: TState[TK]): boolean {
-        if (component.state[propName] !== value) {
+        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
+
+        if (component.state[propName] !== value || (stateMeta.emitters.length > 0 && stateMeta.emitters.indexOf(propName)>=0)) {
             const diff: Partial<TState> = {};
             diff[propName] = value;
             return Functions.nextState(component, diff);
@@ -115,18 +117,21 @@ export class Functions {
 
         const previousState = component.state;
 
-        const { newState, asyncModifiers} = Functions.updateCycle(stateMeta, previousState, diff);
+        const { newState, asyncModifiers, emitters } = Functions.updateCycle(stateMeta, previousState, diff);
 
         component.state = newState;
 
         let result = false;
-        if (component.state !== previousState) {
-            for (const output of stateMeta.outputs) {
-                if (previousState[output.stateProp] !== component.state[output.stateProp]) {
-                    Functions.emit(component, output, component.state[output.stateProp]);
-                }
-            }
+        for (const output of stateMeta.outputs) {
 
+            const emitOutput = !cmpByProp(previousState, component.state, output.stateProp) ||
+                (emitters != null && emitters.indexOf(output.stateProp) >= 0);
+
+            if (emitOutput) {
+                Functions.emit(component, output, component.state[output.stateProp]);
+            }
+        }
+        if (component.state !== previousState) {
             if (component.onAfterStateApplied) {
                 component.onAfterStateApplied(previousState);
             }
@@ -171,26 +176,28 @@ export class Functions {
         }
     }    
 
-    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null } {
+    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitters: (keyof TState)[]|null } {
         if (diff == null) {
-            return {newState: previousState, asyncModifiers: null }
+            return { newState: previousState, asyncModifiers: null, emitters: null }
         }
         const currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
 
         return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff);
     }
 
-    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null} {
+    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitters: (keyof TState)[] } {
         let watchDog = 1000;
-        let diffKeys = Object.keys(diff);
+        let diffKeys = Object.keys(diff) as (keyof TState)[];
         let modifiers: (Modifier<TState> | AsyncModifier<TState>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
-        let asyncModifiers: AsyncModifier<TState>[]|null = null;
+        let asyncModifiers: AsyncModifier<TState>[] | null = null;
+
+        const emitters: (keyof TState)[] = [];
+        addEmitters(diffKeys);
 
         while (watchDog > 0) {
-
             if (modifiers.length < 1) {
-                return { newState: currentState, asyncModifiers: asyncModifiers };
+                return { newState: currentState, asyncModifiers: asyncModifiers, emitters};
             }
             const modifiersAcc: Modifier<TState>[] = [];
             for (const modifier of modifiers) {
@@ -208,9 +215,13 @@ export class Functions {
                 }
                 if (diff != null) {
 
-                    diffKeys = Object.keys(diff);
+                    diffKeys = Object.keys(diff) as (keyof TState)[];
+                    addEmitters(diffKeys);
 
-                    if (diffKeys.some(diffKey => previousState[diffKey] !== diff[diffKey])) {
+                    const hasChanges: boolean = diffKeys.some(dk => !cmpByProp(previousState, diff as TState, dk))
+                        || Functions.diffHasEmitter(diffKeys, null, stateMeta);
+
+                    if (hasChanges) {
                         previousState = currentState;
                         currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
                         Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, modifiersAcc);
@@ -221,13 +232,29 @@ export class Functions {
             watchDog--;
         }
         throw new Error("Recursion overflow");
+
+
+        function addEmitters(keys: (keyof TState)[]) {
+            if (stateMeta.emitters.length > 0) {
+                for (const e of stateMeta.emitters) {
+                    if (emitters.indexOf(e) >= 0) {
+                        continue;
+                    }
+                    if (keys.indexOf(e) < 0) {
+                        continue;
+                    }
+                    emitters.push(e);
+                }
+            }
+        }
     }
 
-    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: string[], modifiersAcc: Modifier<TState>[] | null): (Modifier<TState> | AsyncModifier<TState>)[] {
-        const acc: (Modifier<TState>|AsyncModifier<TState>)[] = modifiersAcc == null ? [] : modifiersAcc;
+    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: (keyof TState)[], modifiersAcc: Modifier<TState>[] | null): (Modifier<TState> | AsyncModifier<TState>)[] {
+        const acc: (Modifier<TState> | AsyncModifier<TState>)[] = modifiersAcc == null ? [] : modifiersAcc;
 
         for (const modifier of stateMeta.modifiers) {
-            if (diffKeys.some(dk => modifier.prop === dk && !cmpByProp(previousState, newState, dk) /*Even if the key is in diff it does not mean that the property is actually changed*/)) {
+            /*Even if the key is in diff it does not mean that the property is actually changed*/
+            if (diffKeys.some(dk => modifier.prop === dk && ((!cmpByProp(previousState, newState, dk)) || Functions.diffHasEmitter(diffKeys, dk, stateMeta)))) {
                 for (const modifierFun of modifier.fun) {
                     if (acc.indexOf(modifierFun) < 0) {
                         acc.push(modifierFun);
@@ -237,6 +264,15 @@ export class Functions {
         }
 
         return acc;
+    }
+
+    private static diffHasEmitter<TState>(diffKeys: (keyof TState)[], specificKey: (keyof TState) | null, stateMeta: StateMeta<TState>): boolean {
+        if (specificKey != null) {
+            if (diffKeys.indexOf(specificKey) < 0) {
+                return false;
+            }
+        }
+        return stateMeta.emitters.length > 0 && stateMeta.emitters.some(eKey => diffKeys.indexOf(eKey)>=0);
     }
 
     private static emit<TState>(component: IWithState<TState>, prop: PropMeta<TState>, value: any): void {
@@ -268,7 +304,7 @@ export class Functions {
             return cons[STATE_META];
         }
 
-        const stateMeta: StateMeta<TState> = { stateConstructor: null, inputs: [], outputs: [], modifiers: [], asyncInit: null };
+        const stateMeta: StateMeta<TState> = { stateConstructor: null, inputs: [], outputs: [], emitters:[], modifiers: [], asyncInit: null };
 
         cons[STATE_META] = stateMeta;
 

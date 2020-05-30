@@ -61,13 +61,13 @@ export interface IWithTimeFunctions<TState> {
 
 function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, fun: Modifier<TState>) {
 
-    async function debounceModifierFun<TState>(getState: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
+    async function debounceModifierFun(getState: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
 
         await delayMs(debounceMs);
 
         if (!getState.isCancelled()) {
             const currentState = getState();
-            if (!cmpByPropsAll(originalState, currentState, propNames as string[])) {
+            if (!cmpByPropsAll(originalState, currentState, propNames)) {
                 return fun.apply(currentState, [currentState, originalState, diff]);
             }
         }

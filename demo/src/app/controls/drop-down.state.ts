@@ -10,7 +10,7 @@ export class DropDownState{
     public static readonly ngOutputs: string[] = ["selectedChange"];
 
     @In()@Out()
-    public readonly selected: Object | null = "003";
+    public readonly selected: Object | null = null;
 
     @In()
     public readonly items: Object[] | null = null;

@@ -1,5 +1,5 @@
 import { TemplateRef } from "@angular/core"
-import { In, Out, With, Calc } from 'ng-set-state';
+import { In, Out, With, Calc, Emitter } from 'ng-set-state';
 import { extractMandatoryMember, scrollIntoViewIfNeeded } from "./helpers";
 
 export type ViewItem = { model: Object, id: Object, text: string, focused: boolean, selected: boolean, element?: HTMLElement, templateContext: Object };
@@ -34,7 +34,8 @@ export class SelectListState {
     public readonly selected: Object | null = null;
 
     @Out("close")
-    public readonly close: number = 0;
+    @Emitter()
+    public readonly close: any;
 
     public readonly viewItems: ViewItem[] = [];
 
@@ -94,7 +95,7 @@ export class SelectListState {
             if (currentIndex > 0) {
                 nextIndex = currentIndex - 1;
             } else {
-                return { close: this.close + 1 };
+                return { close: this.close };
             }
         }
 
@@ -137,7 +138,7 @@ export class SelectListState {
     public onEnter(): NewState {
         if (this.focusedItem != null) {
             if (this.focusedItem === this.selectedViewItem) {
-                return { close: this.close + 1 };
+                return { close: this.close };
             }
             return this.onItemSelect(this.focusedItem);
         }

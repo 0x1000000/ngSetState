@@ -1,3 +1,6 @@
+## 1.1.4 
+* **@Emitter()**: new decorator for state fields. If this decorator is specified for some state filed that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference.
+
 ## 1.1.3
 * **@WithAsync(keyof T).If(predicate: (t:T)=>boolean)**: new decorator extension that can prevent an async transition function calling
 * **@WithAsync(keyof T).Finally(finalState: ()=>Partial&lt;T&gt;)**: new decorator extension that can apply some state difference after an async transition function calling regardless its result

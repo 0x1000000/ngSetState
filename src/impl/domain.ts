@@ -16,6 +16,7 @@ export interface StateMeta<TState> {
     stateConstructor: Constructor<TState> | null;
     inputs: PropMeta<TState>[];
     outputs: PropMeta<TState>[];
+    emitters: (keyof TState)[];
     modifiers: { prop: (keyof TState), fun: (Modifier<TState> | AsyncModifier<TState>)[] }[];
     asyncInit: AsyncModifier<TState> | null;
 }

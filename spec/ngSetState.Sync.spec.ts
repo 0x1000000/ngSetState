@@ -1,5 +1,5 @@
 ﻿import { SimpleChange, EventEmitter} from "@angular/core"
-import { With, WithStateBase, IWithState, In, Out, Calc } from "../src/index";
+import { With, WithStateBase, IWithState, In, Out, Calc, Emitter } from "../src/index";
 import { } from "jasmine";
 
 describe('Synchronous tests', () => {
@@ -152,6 +152,70 @@ describe('Synchronous tests', () => {
         expect(component.state.sub).toBe(-4);
         expect(component.state.summSub).toBe(6);
     });
+
+
+    it("Events Emitters", () => {
+        const component = new TestEmitterSateCompoenent();
+
+        //Direct
+        expect(component.state.arg1).toBe(0);
+        expect(component.state.arg2).toBe(0);
+        component.modifyState("ev", null);
+        expect(component.state.arg1).toBe(1);
+        expect(component.state.arg2).toBe(3);
+        component.modifyStateDiff({ "ev": null });
+        expect(component.state.arg1).toBe(2);
+        expect(component.state.arg2).toBe(4);
+
+        //Indirect
+        component.modifyState("arg3", 1);
+        expect(component.state.arg1).toBe(3);
+        expect(component.state.arg2).toBe(5);
+        component.modifyState("arg3", 1);
+        expect(component.state.arg1).toBe(3);
+        expect(component.state.arg2).toBe(5);
+        component.modifyState("arg3", 2);
+        expect(component.state.arg1).toBe(4);
+        expect(component.state.arg2).toBe(6);
+
+        //Out
+        let counter = 0;
+        let ev2Value = "";
+
+        (component as any).ev2.subscribe((value) => {
+            counter++;
+            ev2Value = value;
+        });
+
+
+        component.modifyState("ev2", component.state.ev2);
+
+        expect(counter).toBe(1);
+        expect(ev2Value).toBe(component.state.ev2);
+
+        ev2Value = "";
+
+        component.modifyState("ev2", component.state.ev2);
+
+        expect(counter).toBe(2);
+        expect(ev2Value).toBe(component.state.ev2);
+
+        ev2Value = "";
+
+        //No emitter
+
+        component.modifyState("arg1", 100);
+
+        expect(counter).toBe(2);
+        expect(ev2Value).toBe("");
+
+        //Out direct + indirect
+        component.modifyState("arg4", 3);
+
+        expect(counter).toBe(3);
+        expect(ev2Value).toBe(component.state.ev2);
+
+    });
 });
 
 class TestComponent extends WithStateBase<TestState> {
@@ -288,4 +352,50 @@ class TestCalcPropsSate {
 
     @Calc(["summ", "sub"], state => state.summ + state.sub)
     public readonly summSub: number;
+}
+
+class TestEmitterSateCompoenent extends WithStateBase<TestEmitterSate> {
+    constructor() {
+        super(new TestEmitterSate(), [], TestEmitterSate.ngOutputs);
+    }
+}
+
+class TestEmitterSate {
+
+    public static readonly ngOutputs = ["ev2"];
+
+    public readonly arg1: number = 0;
+
+    public readonly arg2: number = 0;
+
+    public readonly arg3: number = 0;
+
+    public readonly arg4: number = 0;
+
+    @Emitter()
+    public readonly ev: any = null;
+
+    @Emitter() @Out("ev2")
+    public readonly ev2: string = "ev2Value";
+
+    @With("ev")
+    public static onEvent(state: TestEmitterSate): Partial<TestEmitterSate> | null {
+        return { arg1: state.arg1 + 1 }
+    }
+
+    @With("arg1")
+    public static onArg1(state: TestEmitterSate): Partial<TestEmitterSate> | null {
+        return { arg2: state.arg1 + 2 }
+    }
+
+    @With("arg3")
+    public static onArg3(state: TestEmitterSate): Partial<TestEmitterSate> | null {
+        return { ev: null, ev2: state.ev2 };
+    }
+
+    @With("arg4")
+    public static onArg4(state: TestEmitterSate): Partial<TestEmitterSate> | null {
+        return { arg3: state.arg4 };
+    }
+
 }
