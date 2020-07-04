@@ -118,7 +118,14 @@ export class RunningPool<TState> {
         for (const ri of this._storage) {
             if (ri.modifier.asyncData.locks != null && ri.modifier.asyncData.locks.length > 0) {
                 if (RunningPool.locksIntersect(ri.modifier, modifier)) {
-                    this._lockQueue.push(modifier);
+
+                    if (modifier.asyncData.unlockPriority == 0 || this._lockQueue.length === 0) {
+                        this._lockQueue.push(modifier);
+                    }
+                    else {
+                        const insertIndex = this._lockQueue.findIndex(qi => qi.asyncData.unlockPriority < modifier.asyncData.unlockPriority);
+                        this._lockQueue.splice(insertIndex, 0, modifier);
+                    }                    
                     return true;
                 }
             }

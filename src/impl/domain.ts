@@ -45,6 +45,7 @@ export type BehaviourOnError = "throw" | "forget" | {callMethod: (currentState: 
 export type AsyncData =
 {
     locks: string[] | null,
+    unlockPriority: number,
     behaviourOnConcurrentLaunch: BehaviourOnConcurrentLaunch;
     behaviourOnError: BehaviourOnError;
     predicate: ((state: any) => boolean) | null;

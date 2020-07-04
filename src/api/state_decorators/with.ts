@@ -13,7 +13,8 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
             if (parameters.debounceMs && parameters.debounceMs > 0) {
 
                 const asyncData: AsyncData = {
-                    locks: null,
+                    locks: parameters.locks == null || parameters.locks.length < 1 ? null : parameters.locks,
+                    unlockPriority: 0,
                     behaviourOnConcurrentLaunch: "replace",
                     behaviourOnError: "throw",
                     predicate: null,
@@ -32,11 +33,12 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
         });
 
     const extra: IWithTimeFunctions<TState> = {
-        Debounce(debounceMs: number): IWithAndAllOptions<TState> {
+        Debounce(debounceMs: number, locks?: string[]): IWithAndAllOptions<TState> {
             if(debounceMs == null || debounceMs <= 0){
                 throw new Error("Debounce time should be greater than zero");
             }            
             parameters.debounceMs = debounceMs;
+            parameters.locks = locks;
             return result;
         }
     }
@@ -55,7 +57,7 @@ export type IWithAllOptions<TState> = IWithTimeFunctions<TState>;
 export type IWithAndAllOptions<TState> = IWith<TState> & IWithAllOptions<TState>;
 
 export interface IWithTimeFunctions<TState> {
-    Debounce(timeMs: number): IWithAndAllOptions<TState>;
+    Debounce(timeMs: number, locks?: string[]): IWithAndAllOptions<TState>;
 }
 
 
@@ -67,6 +69,7 @@ function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceM
 
         if (!getState.isCancelled()) {
             const currentState = getState();
+            
             if (!cmpByPropsAll(originalState, currentState, propNames)) {
                 return fun.apply(currentState, [currentState, originalState, diff]);
             }

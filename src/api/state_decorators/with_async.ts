@@ -8,6 +8,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
 
     const asyncData: AsyncData = {
         locks: [],
+        unlockPriority: 0,
         behaviourOnConcurrentLaunch: "putAfter",
         behaviourOnError: "throw",
         predicate: null,
@@ -16,13 +17,16 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
 
     let debounceMs: number | null = null;
 
-    const result: IWithAsyncAndAllOptions<TState> = <any>
+    let debounceLocks: string[] | undefined;
+
+    const result: IWithAsyncAndAllOptions<TState> & IWithAsyncLocksPriority<TState> = <any>
     ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
 
         if (debounceMs != null) {
 
             const debounceAsyncData: AsyncData = {
-                locks: null,
+                locks: debounceLocks == null || debounceLocks.length < 1 ? null : debounceLocks,
+                unlockPriority: 0,
                 behaviourOnConcurrentLaunch: "replace",
                 behaviourOnError: "throw",
                 predicate: null,
@@ -56,7 +60,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
     const checkLocks = () => checkGeneric("locks", "Locks");
     const checkOnError = () => checkGeneric("onError", "OnError...");
 
-    const optional: IWithAsyncAllOptions<TState> = {
+    const optional: IWithAsyncAllOptions<TState> & IWithAsyncLocksPriority<TState> = {
         OnConcurrentLaunchCancel: () => {
             checkOnConcurrent();
             asyncData.behaviourOnConcurrentLaunch = "cancel";
@@ -82,6 +86,10 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             asyncData.locks = lockIds;
             return result;
         },
+        UnlockPriority: (priority: number) => {
+            asyncData.unlockPriority = priority
+            return result;
+        },
         OnErrorThrow: () => {
             checkOnError();
             asyncData.behaviourOnError = "throw";
@@ -97,7 +105,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             asyncData.behaviourOnError = { callMethod: method };
             return result;
         },
-        Debounce: (inDebounceMs: number) => {
+        Debounce: (inDebounceMs: number, locks?: string[]) => {
 
             if (debounceMs != null) {
                 throw new Error("function Debounce(...) has been called several times");
@@ -106,6 +114,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
                 throw new Error("Debounce time should be greater than zero");
             }
             debounceMs = inDebounceMs;
+            debounceLocks = locks;
             return result;
         },
         If: (predicate: (currentState: TState) => boolean) => {
@@ -139,8 +148,13 @@ export interface IWithAsyncOnConcurrentLaunch<TState> {
 }
 
 export interface IWithAsyncLocks<TState> {
-    Locks(...lockIds: string[]): IWithAsyncAndAllOptions<TState>;
+    Locks(...lockIds: string[]): IWithAsyncAndAllOptions<TState> & IWithAsyncLocksPriority<TState>;
 }
+
+export interface IWithAsyncLocksPriority<TState> {
+    UnlockPriority(priority: number): IWithAsyncAndAllOptions<TState>;
+}
+
 
 export interface IWithAsyncOnError<TState> {
     OnErrorThrow(): IWithAsyncAndAllOptions<TState>;
@@ -149,7 +163,7 @@ export interface IWithAsyncOnError<TState> {
 }
 
 export interface IWithAsyncTimeFunctions<TState> {
-    Debounce(timeMs: number): IWithAsyncAndAllOptions<TState>;
+    Debounce(timeMs: number, locks?: string[]): IWithAsyncAndAllOptions<TState>;
 }
 
 export interface IWithAsyncPrePostFunctions<TState> {

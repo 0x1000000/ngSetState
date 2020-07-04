@@ -78,6 +78,29 @@ describe('Time tests: Debounce...', () => {
         expect(counter.cancel).toBe(1);
     });
 
+    fit('Locks', async () => {
+        const comp = new TestAsyncDebounceLocksComponent();
+
+        comp.modifyState("data", "data1");
+
+        await delayMs(1);
+
+        comp.modifyState("id", "id1");
+
+        await delayMs(1);
+
+        expect(comp.state.loadedId).toBe(null);
+
+        await delayMs(150);
+
+        expect(comp.state.loadedId).toBe(null);
+
+        await comp.whenAll();
+
+        expect(comp.state.loadedId).toBe("id1");
+
+        expect(comp.state.savingData).toBe("saved");
+    });
 });
 
 
@@ -161,5 +184,46 @@ class TestAsyncDebounceState {
 class TestAsyncDebounceComponent extends WithStateBase<TestAsyncDebounceState> {
     constructor(arg: number, result: number, callback: (type: "putAfter" | "replaceCan" | "replace" | "cancelCan" | "cancel") => void) {
         super(new TestAsyncDebounceState(arg, result, callback), null, null);
+    }
+}
+
+class TestAsyncDebounceLocksState {
+
+    public readonly id: string | null = null;
+
+    public readonly loadedId: string | null = null;
+
+    public readonly data: string | null = null;
+
+    public readonly savingData: string | null = null;
+
+    @WithAsync("id").Locks("loading")
+    public static async load(getState: () => TestAsyncDebounceLocksState): Promise<Partial<TestAsyncDebounceLocksState>> {
+        const state = getState();
+        await delayMs(1);
+        return { loadedId: state.id, savingData: state.data };
+    }
+
+    @With("data").Debounce(100, ["loading"])
+    public static onDataChange(state: TestAsyncDebounceLocksState, prevState: TestAsyncDebounceLocksState): Partial<TestAsyncDebounceLocksState> | null {
+        if (state.data === prevState.data) {
+            return { savingData: state.data }
+        }
+        return null;
+    }
+
+    @WithAsync("savingData").Locks("loading").UnlockPriority(1)
+    public static async save(getState: () => TestAsyncDebounceLocksState): Promise<Partial<TestAsyncDebounceLocksState> | null> {
+        if (getState().savingData === "saved") {
+            return null;
+        }
+        await delayMs(100);
+        return { savingData: "saved", data: "saved" };
+    }
+}
+
+class TestAsyncDebounceLocksComponent extends WithStateBase<TestAsyncDebounceLocksState> {
+    constructor() {
+        super(new TestAsyncDebounceLocksState(), null, null);
     }
 }
