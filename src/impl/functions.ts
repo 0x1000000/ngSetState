@@ -1,4 +1,4 @@
-import { EventEmitter, SimpleChanges, ɵɵNgOnChangesFeature } from "@angular/core";
+import { EventEmitter, SimpleChanges } from "@angular/core";
 import { IWithState } from './../api/i_with_state';
 import { Constructor, Constructor as IConstructor } from './../api/common';
 import { AsyncState } from './async_state';
@@ -17,17 +17,6 @@ export class Functions {
         }
 
         const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(state);
-
-        //Compatibility with IVY
-        if (ɵɵNgOnChangesFeature != null) {
-			const componentDef = (<any>component).constructor.ɵcmp;
-            if (componentDef != null) {
-                const fResult = ɵɵNgOnChangesFeature(componentDef);
-                if (fResult != null && typeof fResult === "function") {
-                    (fResult as any)(componentDef);//Compatibility with early 9 versions https://github.com/angular/angular/commit/9cf85d21775c259bc580d43a729283856db82757#diff-d44767251b34bbd5465b96d3befb92b6
-                }
-			}
-        }
 
         //CheckInputs
 
@@ -84,7 +73,7 @@ export class Functions {
 
             const change = changes[prop.componentProp];
 
-            if (change && change.currentValue !== component.state[prop.stateProp]) {
+            if (change && (change.currentValue !== component.state[prop.stateProp] || isEmittrer(prop))) {
                 if (!diff) {
                     diff = {};
                 }
@@ -94,6 +83,10 @@ export class Functions {
 
         if (diff) {
             Functions.nextState(component, diff);
+        }
+
+        function isEmittrer(p: PropMeta<TState>) {
+            return stateMeta.emitters.indexOf(p.stateProp) >= 0;
         }
     }
 
@@ -117,7 +110,7 @@ export class Functions {
 
         const previousState = component.state;
 
-        const { newState, asyncModifiers, emitters } = Functions.updateCycle(stateMeta, previousState, diff);
+        const { newState, asyncModifiers, emitterProps } = Functions.updateCycle(stateMeta, previousState, diff, false);
 
         component.state = newState;
 
@@ -125,7 +118,7 @@ export class Functions {
         for (const output of stateMeta.outputs) {
 
             const emitOutput = !cmpByProp(previousState, component.state, output.stateProp) ||
-                (emitters != null && emitters.indexOf(output.stateProp) >= 0);
+                (emitterProps != null && emitterProps.indexOf(output.stateProp) >= 0);
 
             if (emitOutput) {
                 Functions.emit(component, output, component.state[output.stateProp]);
@@ -176,28 +169,36 @@ export class Functions {
         }
     }    
 
-    private static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitters: (keyof TState)[]|null } {
+    public static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>, freeze: boolean)
+        : { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitterProps: (keyof TState)[] | null }
+    {
         if (diff == null) {
-            return { newState: previousState, asyncModifiers: null, emitters: null }
+            return { newState: previousState, asyncModifiers: null, emitterProps: null }
         }
-        const currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
+        const currentState = Functions.cloneStateObject(previousState, diff, stateMeta, freeze);
 
-        return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff);
+        if (currentState === previousState && stateMeta.emitters.length < 0) {
+            return { newState: currentState, asyncModifiers: null, emitterProps: null };
+        }
+
+        return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff, freeze);
     }
 
-    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>): { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitters: (keyof TState)[] } {
+    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>, freeze: boolean)
+        : { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitterProps: (keyof TState)[] }
+    {
         let watchDog = 1000;
         let diffKeys = Object.keys(diff) as (keyof TState)[];
         let modifiers: (Modifier<TState> | AsyncModifier<TState>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
         let asyncModifiers: AsyncModifier<TState>[] | null = null;
 
-        const emitters: (keyof TState)[] = [];
+        const emitterProps: (keyof TState)[] = [];
         addEmitters(diffKeys);
 
         while (watchDog > 0) {
             if (modifiers.length < 1) {
-                return { newState: currentState, asyncModifiers: asyncModifiers, emitters};
+                return { newState: currentState, asyncModifiers: asyncModifiers, emitterProps};
             }
             const modifiersAcc: Modifier<TState>[] = [];
             for (const modifier of modifiers) {
@@ -223,7 +224,7 @@ export class Functions {
 
                     if (hasChanges) {
                         previousState = currentState;
-                        currentState = Functions.cloneStateObject(previousState, diff, stateMeta);
+                        currentState = Functions.cloneStateObject(previousState, diff, stateMeta, freeze);
                         Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, modifiersAcc);
                     }
                 }
@@ -237,13 +238,13 @@ export class Functions {
         function addEmitters(keys: (keyof TState)[]) {
             if (stateMeta.emitters.length > 0) {
                 for (const e of stateMeta.emitters) {
-                    if (emitters.indexOf(e) >= 0) {
+                    if (emitterProps.indexOf(e) >= 0) {
                         continue;
                     }
                     if (keys.indexOf(e) < 0) {
                         continue;
                     }
-                    emitters.push(e);
+                    emitterProps.push(e);
                 }
             }
         }
@@ -295,7 +296,7 @@ export class Functions {
 
     public static ensureStateMeta<TState extends Object>(obj: TState | IConstructor<TState>): StateMeta<TState> {
         if (obj == null) {
-            throw new Error("State should be initialized");
+            throw new Error("State host should be initialized");
         }
 
         const cons = typeof obj === "function" ? obj : obj.constructor;
@@ -304,14 +305,23 @@ export class Functions {
             return cons[STATE_META];
         }
 
-        const stateMeta: StateMeta<TState> = { stateConstructor: null, inputs: [], outputs: [], emitters:[], modifiers: [], asyncInit: null };
+        const stateMeta: StateMeta<TState> = {
+            stateConstructor: null,
+            inputs: [],
+            outputs: [],
+            emitters: [],
+            emitterMaps: {},
+            modifiers: [],
+            explicitStateProps: [],
+            asyncInit: null
+        };
 
         cons[STATE_META] = stateMeta;
 
         return stateMeta;
     }
 
-    private static cloneStateObject<TState>(previousState: TState, diff: Partial<TState>, stateMeta: StateMeta<TState>): TState {
+    private static cloneStateObject<TState>(previousState: TState, diff: Partial<TState>, stateMeta: StateMeta<TState>, freeze: boolean): TState {
 
         //Check changes
         if (diff == null) {
@@ -324,13 +334,20 @@ export class Functions {
         if (diffProperties.every(dp => previousState[dp] === diff[dp])) {
             return previousState;
         }
-
+        let result: TState;
         if (stateMeta.stateConstructor) {
             const newInstance = Object.create(stateMeta.stateConstructor.prototype);
             Object.assign(newInstance, previousState, diff);
-            return newInstance;
+            result = newInstance;
         }
-        return Object.assign({}, previousState, diff);
+        else {
+            result = Object.assign({}, previousState, diff);
+        }
+
+        if (freeze) {
+            Object.freeze(result);
+        }
+        return result;
     }
 
     private static compareArrays<T>(arr1: T[], arr2: T[]): { missedInArr1: T[], missedInArr2: T[] } {
@@ -348,5 +365,5 @@ export class Functions {
             }
         }
         return result;
-    }    
+    }
 }

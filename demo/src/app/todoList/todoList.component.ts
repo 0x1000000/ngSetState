@@ -23,7 +23,7 @@ export class TodoListComponent extends WithStateBase<TodoListState> implements O
         private readonly _changeDetector: ChangeDetectorRef,
         todoService: TodoService)
     {
-        super(_stateStorage.getState(TodoListComponent.storageKey, ()=>new TodoListState(todoService)), TodoListState.ngInputs, TodoListState.ngOutputs);
+        super(_stateStorage.getState(TodoListComponent.storageKey, ()=>new TodoListState(todoService))!, TodoListState.ngInputs, TodoListState.ngOutputs);
 
         this._stateStorage.subscibe<TodoListState>(this,
             TodoListComponent.storageKey,

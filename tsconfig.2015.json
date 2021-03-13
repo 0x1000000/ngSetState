@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "sourceMap": false,
+    "declaration": true,
+    "module": "es6",
+    "moduleResolution": "node",
+    "importHelpers": true,
+    "target": "es6",
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "lib": [
+      "es2018",
+      "dom"
+    ],
+    "types": [
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "demo",
+    "dist",
+    "compiled",
+    "spec"
+  ],
+  "compileOnSave": false,
+  "buildOnSave": false
+}

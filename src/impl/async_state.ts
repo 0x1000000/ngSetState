@@ -1,21 +1,21 @@
 import { RunningPool } from "./running_pool";
 import { AsyncModifier, ASYNC_STATE, ConComponent } from './domain';
-import { IWithState } from './../api/i_with_state';
+import { IStateHolder } from './../api/i_with_state';
 import { checkPromise } from './utils';
 import { AsyncContext } from "../api/common";
 
 export class AsyncState<TState> {
 
-    constructor(private readonly _component: IWithState<TState>) { }
+    constructor(private readonly _component: IStateHolder<TState>) { }
 
     private readonly _pool = new RunningPool<TState>();
     
-    public static pushModifiers<TState>(component: IWithState<TState>, modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
+    public static pushModifiers<TState>(component: IStateHolder<TState>, modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
         const instance = AsyncState.ensureComponentAsyncState<TState>(component);
         instance.pushModifiers(modifiers, previousState, diff);
     }
 
-    public static async whenAll<TState>(component: IWithState<TState>): Promise<any> {
+    public static async whenAll<TState>(component: IStateHolder<TState>): Promise<any> {
         if (!component[ASYNC_STATE]) {
             return;
         }
@@ -129,7 +129,7 @@ export class AsyncState<TState> {
         return result;
     }
 
-    private static ensureComponentAsyncState<TState>(component: IWithState<TState>): AsyncState<TState> {
+    private static ensureComponentAsyncState<TState>(component: IStateHolder<TState>): AsyncState<TState> {
         if (component == null) {
             throw new Error("Component should be initialized");
         }

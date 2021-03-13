@@ -215,6 +215,26 @@ describe('Synchronous tests', () => {
         expect(counter).toBe(3);
         expect(ev2Value).toBe(component.state.ev2);
 
+        //In
+
+        component.ngOnChanges({
+            "argInMap": new SimpleChange(7,7, false)
+        });
+
+        expect(component.state.argIn).toBe(7);
+        expect(component.state.argCounter).toBe(1);
+
+        component.ngOnChanges({
+            "argInMap": new SimpleChange(7, 7, false)
+        });
+
+        expect(component.state.argIn).toBe(7);
+        expect(component.state.argCounter).toBe(2);
+
+        component.modifyState("argIn", 7)
+        expect(component.state.argIn).toBe(7);
+        expect(component.state.argCounter).toBe(3);
+
     });
 });
 
@@ -356,11 +376,13 @@ class TestCalcPropsSate {
 
 class TestEmitterSateCompoenent extends WithStateBase<TestEmitterSate> {
     constructor() {
-        super(new TestEmitterSate(), [], TestEmitterSate.ngOutputs);
+        super(new TestEmitterSate(), TestEmitterSate.ngInputs, TestEmitterSate.ngOutputs);
     }
 }
 
 class TestEmitterSate {
+
+    public static readonly ngInputs = ["argInMap"];
 
     public static readonly ngOutputs = ["ev2"];
 
@@ -371,6 +393,11 @@ class TestEmitterSate {
     public readonly arg3: number = 0;
 
     public readonly arg4: number = 0;
+
+    @In("argInMap") @Emitter()
+    public readonly argIn: number = 0;
+
+    public readonly argCounter: number = 0;
 
     @Emitter()
     public readonly ev: any = null;
@@ -398,4 +425,8 @@ class TestEmitterSate {
         return { arg3: state.arg4 };
     }
 
+    @With("argIn")
+    public static onArgIn(state: TestEmitterSate): Partial<TestEmitterSate> | null {
+        return { argCounter: state.argCounter +1 };
+    }
 }

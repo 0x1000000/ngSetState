@@ -4,9 +4,14 @@ export class StateStorageService {
 
     private readonly _subscribers: { component: Object, key: string, handler: (state: any) => void }[] = [];
 
-    public getState<TState>(key: string, defaultGetter : () => TState): TState {
+    public getState<TState>(key: string, defaultGetter? : (() => TState)| null): TState|null {
         if (!this._storage.has(key)) {
-            this._storage.set(key, defaultGetter());
+            if(defaultGetter != null){
+                this._storage.set(key, defaultGetter());
+            }
+            else{
+                return null;
+            }            
         }
         return this._storage.get(key);
     }

@@ -6,8 +6,8 @@ export default {
   input: 'src/index.ts',
   output: [
     {
-      file: pkg.main,
-      format: 'cjs'
+      file: pkg.es2015,
+      format: 'es'
     }
   ],
   external: [
@@ -17,6 +17,7 @@ export default {
 
 plugins: [
     typescript({
+	  tsconfig: "tsconfig.2015.json",
       typescript: require('typescript')
     })
   ]

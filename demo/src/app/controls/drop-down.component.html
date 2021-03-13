@@ -9,7 +9,7 @@
     </div>
     <select-list
         [@openClose]="state.contentAnimationState"
-        (@openClose.done)="modifyStateDiff(state.onOpenAnimationDone($event.toState), true)"
+        (@openClose.done)="modifyStateDiff(state.onOpenAnimationDone($event.toState))"
         class="l-popover-content"
         [class.l-popover-content-opened]="state.isOpenAnimationDone"
 

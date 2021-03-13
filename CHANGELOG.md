@@ -1,3 +1,6 @@
+## 1.2.0
+* **BUG FIX**: @Emitter() works for input properties.
+
 ## 1.1.4 
 * **@Emitter()**: new decorator for state fields. If this decorator is specified for some state filed that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference.
 

@@ -39,6 +39,7 @@
     <TypeScriptCompile Include="spec\helpers.ts">
       <SubType>Code</SubType>
     </TypeScriptCompile>
+    <TypeScriptCompile Include="spec\ngSetState.StateTracking.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Time.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Async.spec.ts" />
     <TypeScriptCompile Include="spec\ngSetState.Sync.spec.ts" />
@@ -48,15 +49,20 @@
     <TypeScriptCompile Include="src\api\state_decorators\calc.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\emitter.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\in.ts" />
+    <TypeScriptCompile Include="src\api\state_decorators\output_for.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\out.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\with.ts" />
     <TypeScriptCompile Include="src\api\state_decorators\with_async.ts" />
+    <TypeScriptCompile Include="src\api\state_tracking.ts">
+      <SubType>Code</SubType>
+    </TypeScriptCompile>
     <TypeScriptCompile Include="src\api\with_state.ts" />
     <TypeScriptCompile Include="src\api\with_state_base.ts" />
     <TypeScriptCompile Include="src\impl\async_state.ts" />
     <TypeScriptCompile Include="src\impl\domain.ts" />
     <TypeScriptCompile Include="src\impl\functions.ts" />
     <TypeScriptCompile Include="src\impl\running_pool.ts" />
+    <TypeScriptCompile Include="src\impl\state_tracking_context.ts" />
     <TypeScriptCompile Include="src\impl\utils.ts" />
     <TypeScriptCompile Include="src\index.ts" />
   </ItemGroup>

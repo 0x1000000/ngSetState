@@ -1,5 +1,5 @@
 import { Constructor, AsyncContext } from './../api/common';
-import { IWithState } from "../api/i_with_state";
+import { IStateHolder } from "../api/i_with_state";
 
 export const STATE_META = "__state_meta__";
 
@@ -17,7 +17,9 @@ export interface StateMeta<TState> {
     inputs: PropMeta<TState>[];
     outputs: PropMeta<TState>[];
     emitters: (keyof TState)[];
+    emitterMaps: { [key: string]: keyof TState };
     modifiers: { prop: (keyof TState), fun: (Modifier<TState> | AsyncModifier<TState>)[] }[];
+    explicitStateProps: (keyof TState)[];
     asyncInit: AsyncModifier<TState> | null;
 }
 
@@ -32,7 +34,7 @@ export interface AsyncModifier<TState> {
 }
 
 export interface ConComponent<TState> {
-    getComponent: () => IWithState<TState>;
+    getComponent: () => IStateHolder<TState>;
 }
 
 export function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifier<TState>): modifier is AsyncModifier<TState> {

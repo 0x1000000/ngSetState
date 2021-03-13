@@ -7,7 +7,7 @@
         </ul>
     </tab-pane>
     <tab-pane title="Calculator" id="calculator">
-        <div class="main-content">
+        <div class="main-content" *ngIf="state.selectedTab == 'calculator'">
             <calculator-demo></calculator-demo>
         </div>
         <p><a href="https://github.com/0x1000000/ngSetState/blob/master/demo/src/app/calculator/calculator.state.ts">Source Code</a></p>

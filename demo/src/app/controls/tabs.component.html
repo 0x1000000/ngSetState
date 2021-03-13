@@ -5,7 +5,7 @@
              class="l-tab-label"
              [class.l-tab-label-selected]="label.selected"
              (click)="onLabelClick(labelElement, label)"
-             [life-cycle]
+             life-cycle
              (onInit)="onLabelCreated(label, labelElement)"
              (onDestroy)="onLabelDestroyed(label, labelElement)">
             {{label.title}}
