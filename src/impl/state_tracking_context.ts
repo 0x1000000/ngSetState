@@ -5,12 +5,24 @@ import { StateMeta } from './domain';
 import { IStateHolder } from '../api/i_with_state';
 import { EMITTER_SUFFIX } from './domain';
 import { cmpByProp } from './utils';
-import { StateTrackingOptions, ComponentState, IStateHandler, ComponentStateDiff } from '../api/state_tracking';
+import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription } from '../api/state_tracking';
 
 type PropertyKey = keyof any;
 
-export class StateTrackerContext<TComponent> implements IStateHolder<ComponentState<TComponent>>, IStateHandler<TComponent> {
+interface IStateTrackerSubscriber {
+    onStateChange(sharedState: Object, state: Object, previous: Object);
+}
+
+interface IStateTrackerRef {
+    subscribeTracker(subscriber: IStateTrackerSubscriber);
+    releaseTracker(subscriber: IStateTrackerSubscriber);
+    getState(): Object;
+}
+
+export class StateTrackerContext<TComponent> implements IStateHolder<ComponentState<TComponent>> {
     public state: ComponentState<TComponent>;
+
+    private static readonly contextRefPropertyId: symbol = Symbol();
 
     private _callbackIsScheduled: boolean = false;
 
@@ -26,29 +38,48 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private readonly _sharedState: Object | null;
 
+    private readonly _subscribers: IStateTrackerSubscriber[] = [];
+
     constructor(component: TComponent, stateMeta: StateMeta<any>, options: StateTrackingOptions<TComponent> | null |undefined) {
+
+        if (component[StateTrackerContext.contextRefPropertyId]) {
+            throw new Error("This component has already been initialized with a state tracker");
+        }
+
+        //This Object will be added to the component property as a ref
+        const ref: IStateTrackerRef = {
+            subscribeTracker: (s) => this._subscribers.push(s),
+            releaseTracker: (s) => {
+                const sIndex = this._subscribers.indexOf(s);
+                if (sIndex < 0) {
+                    throw new Error("Could not find subscriber");
+                }
+                this._subscribers.splice(sIndex, 1);
+            },
+            getState: () => this.state
+        };
+
+        component[StateTrackerContext.contextRefPropertyId] = ref;
 
         this._component = component;
         this._stateMeta = stateMeta;
         this._options = this.ensureDefaultOptions(options);
 
         const externalState: ComponentStateDiff<TComponent> | null = this._options.getInitialState?.call(component, component);
-
         this.state = <ComponentState<TComponent>>(externalState ?? <ComponentState<TComponent>>{});
 
         //adds to state all props mentioned as modifier dependencies
         const props = this._stateMeta.modifiers.map(m => m.prop);
-
+        // adds explicitly defined properties
         props.push(...this._stateMeta.explicitStateProps.filter(e => props.indexOf(e) < 0));
 
-        //adds to state all props with some initial value
+        //finds EventEmitters
         for (const key of Object.keys(this._component)) {
             const value = component[key];
             if (value != undefined) {               
                 if (externalState != null && externalState === value) {
                     continue;
                 }
-
                 if (value instanceof EventEmitter) {
                     if (stateMeta.emitterMaps[key]) {
                         const eKey = stateMeta.emitterMaps[key] as string;
@@ -77,22 +108,30 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             }
         }
 
+        //Replacing with getters and setters
         for (const e of props) {
             this.replaceMember(e, externalState == null);
         }
 
+        //Replacing with getters and setters with pointing to a shared state
         this._sharedState = this._options.getSharedStateTracker?.call(component, component);
-
         if (this._sharedState) {
+
+            if (!this._sharedState[StateTrackerContext.contextRefPropertyId] || this === this._sharedState) {
+                throw new Error("Only other state trackers can be specified as a shared state tracker");
+            }
+
             for (const sk of Object.keys(this._sharedState).filter(k => Object.getOwnPropertyDescriptor(this._sharedState, k)?.set != null)) {
                 this.replaceSharedMember(sk, this._sharedState);
             }
         }
 
+        //Constructing stateTrackerHandler
         this._options.setHandler?.call(component, component,
             {
                 getState: () => this.getState(),
-                modifyStateDiff: (diff) => this.modifyStateDiff(diff)
+                modifyStateDiff: (diff) => this.modifyStateDiff(diff),
+                subscribeSharedStateChange: () => this.subscribeSharedStateChange()
             });
 
         //Push async init
@@ -108,11 +147,6 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         }
 
         let previousState = this.state;
-
-        if (this._sharedState != null) {
-            previousState = Object.assign({}, previousState, this._sharedState);
-        }
-
 
         const { newState, asyncModifiers, emitterProps: alwaysEmittedProps } = Functions.updateCycle(this._stateMeta, previousState, diff, true);
 
@@ -166,6 +200,12 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             AsyncState.pushModifiers(this, asyncModifiers, previousState, diff);
         }
 
+        if (this._subscribers.length > 0 && result) {
+            for (const subscriber of this._subscribers) {
+                subscriber.onStateChange(this, this.state, previousState);
+            }
+        }
+
         return result;
     }
 
@@ -192,7 +232,6 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 },
                 enumerable: true
             });
-
     }
 
     private replaceSharedMember(prop: PropertyKey, sharedState: Object) {
@@ -206,6 +245,13 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 },
                 set: (val) => {
                     if (existingDescriptor?.set) {
+
+                        if (this._sharedState != null) {
+                            const ref: IStateTrackerRef = this._sharedState[StateTrackerContext.contextRefPropertyId];
+                            this.state = Object.assign({}, this.state, ref.getState());
+                            Object.freeze(this.state);
+                        }
+
                         existingDescriptor.set.call(this, val);
                     } else {//modifyStateDiff will update it
                         sharedState[prop] = val;
@@ -239,6 +285,27 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 this.modifyStateDiff(cb);
             });
         }
+    }
+
+    public subscribeSharedStateChange(): ISharedStateChangeSubscription | null {
+        if (this._sharedState == null) {
+            return null;
+        }
+
+        const ref: IStateTrackerRef = this._sharedState[StateTrackerContext.contextRefPropertyId];
+
+        const subscriber = { onStateChange: (t, s, p) => this.onSharedStateChanged(t, s, p) };
+        ref.subscribeTracker(subscriber);
+
+        return {
+            unsubscribe: () => ref.releaseTracker(subscriber)
+        };
+    }
+
+    private onSharedStateChanged(sharedStateComponent: Object, newState: Object, previous: Object) {
+        this.state = Object.assign({}, this.state, previous);
+        Object.freeze(this.state);
+        this.modifyStateDiff(newState as any);
     }
 
     private ensureDefaultOptions(options: StateTrackingOptions<TComponent> | null | undefined)

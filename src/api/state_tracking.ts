@@ -28,6 +28,12 @@ export interface IStateHandler<TComponent> {
     getState(): ComponentState<TComponent>;
 
     modifyStateDiff(diff: ComponentStateDiff<TComponent>);
+
+    subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
+}
+
+export interface ISharedStateChangeSubscription {
+    unsubscribe();
 }
 
 export function initializeStateTracking<TComponent>(component: TComponent, options?: InitStateTrackingOptions<TComponent>): IStateHandler<TComponent> {
@@ -53,7 +59,11 @@ export function initializeStateTracking<TComponent>(component: TComponent, optio
     }
 
     const tracker = new StateTrackerContext<TComponent>(component, stateMeta, contextOptions);
-    return { getState: ()=>tracker.getState(), modifyStateDiff: (d)=>tracker.modifyStateDiff(d) };
+    return {
+        getState: () => tracker.getState(),
+        modifyStateDiff: (d) => tracker.modifyStateDiff(d),
+        subscribeSharedStateChange: () => tracker.subscribeSharedStateChange()
+    };
 }
 
 export function StateTracking<TComponent>(options?: StateTrackingOptions<TComponent>)

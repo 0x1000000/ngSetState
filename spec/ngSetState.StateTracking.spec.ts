@@ -1,4 +1,4 @@
-﻿import { Emitter, With, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking } from "../src/index";
+﻿import { Emitter, With, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription } from "../src/index";
 import { } from "jasmine";
 import { delayMs } from './helpers';
 import { EventEmitter } from '@angular/core';
@@ -132,6 +132,13 @@ describe('State Tracking...', () => {
         expect(sharedStateClient2.arg2).toBe(3);
         expect(sharedStateClient2.sum).toBe(7);
         expect(sharedStateClient2.sub).toBe(1);
+
+
+        expect(sharedStateClient2.otherArg).toBe(sharedStateClient1.sum);
+
+        sharedStateClient2.subscription?.unsubscribe();
+        expect(() => sharedStateClient2.subscription?.unsubscribe()).toThrow();
+
     });
 });
 
@@ -306,13 +313,21 @@ class SharedStateClient1 implements SharedState {
     public mul: number = 0;
 }
 
-@StateTracking<SharedStateClient2>({
+@
+StateTracking<SharedStateClient2>({
     immediateEvaluation: true,
-    getSharedStateTracker: (c) => c.ss
+    getSharedStateTracker: (c) => c.ss,
+    setHandler: (c, h) => c.onSetHandler(h)
 })
 class SharedStateClient2 implements SharedState {
     constructor(public readonly ss: SharedState) {
 
+    }
+
+    public subscription: ISharedStateChangeSubscription | null;
+
+    public onSetHandler(handler: IStateHandler<ComponentState<SharedStateClient2>>) {
+        this.subscription = handler.subscribeSharedStateChange();
     }
 
     public arg1: number = 0;
@@ -330,5 +345,10 @@ class SharedStateClient2 implements SharedState {
     @With("arg1", "arg2")
     public static calcMul(state: ComponentState<SharedStateClient2>): ComponentStateDiff<SharedStateClient2> {
         return { mul: state.arg1 * state.arg2 };
+    }
+
+    @With("sum")
+    public static onSum(state: ComponentState<SharedStateClient2>): ComponentStateDiff<SharedStateClient2> {
+        return { otherArg: state.sum };
     }
 }

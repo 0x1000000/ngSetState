@@ -1,3 +1,6 @@
+## 2.0.0
+* **StateTaraking**: The state can be tracked directly in component without an external class.
+
 ## 1.2.0
 * **BUG FIX**: @Emitter() works for input properties.
 
