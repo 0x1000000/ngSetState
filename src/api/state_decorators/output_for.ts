@@ -19,8 +19,24 @@ export function IncludeInState<TComponent>(): any {
         const stateMeta = Functions.ensureStateMeta(target);
 
         if (stateMeta.explicitStateProps.indexOf(propertyKey)>=0) {
-            throw new Error(`"roperty '${propertyKey}' has been already included into the state`);
+            throw new Error(`"Property '${propertyKey}' has been already included into the state`);
         }
         stateMeta.explicitStateProps.push(propertyKey);
+    }
+}
+
+export function BindToShared<TComponent>(sharedProp?: keyof TComponent, index?: number): any {
+
+    return (target: TComponent, propertyKey: keyof TComponent) => {
+        if (!sharedProp) {
+            sharedProp = propertyKey;
+        }
+
+        const stateMeta = Functions.ensureStateMeta(target);
+
+        if (stateMeta.sharedBindings[propertyKey as any] != null) {
+            throw new Error(`"Property '${propertyKey}' has been already bound to a shared state propery.`);
+        }
+        stateMeta.sharedBindings[propertyKey as any] = index == null ? sharedProp : [sharedProp, index];
     }
 }

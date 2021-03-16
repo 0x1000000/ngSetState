@@ -14,14 +14,14 @@ export type StateTrackingOptions<TComponent> = {
     onStateApplied?: ((component: TComponent, state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     getInitialState?: ((component: TComponent) => ComponentStateDiff<TComponent> | null) | null,
     setHandler?: ((component: TComponent, handler: IStateHandler<TComponent>) => void) | null,
-    getSharedStateTracker?: ((component: TComponent) => Object | null) | null,
+    getSharedStateTracker?: ((component: TComponent) => Object | Object[] | null) | null,
 }
 
 export type InitStateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
     onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     initialState?: ComponentStateDiff<TComponent> | null,
-    sharedStateTracker?: Object | null,
+    sharedStateTracker?: Object | Object[] | null,
 }
 
 export interface IStateHandler<TComponent> {

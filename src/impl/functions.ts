@@ -313,6 +313,7 @@ export class Functions {
             emitterMaps: {},
             modifiers: [],
             explicitStateProps: [],
+            sharedBindings: {},
             asyncInit: null
         };
 
@@ -327,11 +328,11 @@ export class Functions {
         if (diff == null) {
             return previousState;
         }
-        const diffProperties = Object.getOwnPropertyNames(diff);
+        const diffProperties = Object.keys(diff);
         if (diffProperties == null || diffProperties.length < 0) {
             return previousState;
         }
-        if (diffProperties.every(dp => previousState[dp] === diff[dp])) {
+        if (diffProperties.every(dp => cmpByProp(previousState, diff, dp as any))) {
             return previousState;
         }
         let result: TState;

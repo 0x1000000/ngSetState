@@ -12,6 +12,9 @@ export interface PropMeta<TState> {
     readonly componentProp: string,
 }
 
+export type SharedBindingRef = ((keyof any) | [(keyof any), number]);
+
+
 export interface StateMeta<TState> {
     stateConstructor: Constructor<TState> | null;
     inputs: PropMeta<TState>[];
@@ -20,6 +23,7 @@ export interface StateMeta<TState> {
     emitterMaps: { [key: string]: keyof TState };
     modifiers: { prop: (keyof TState), fun: (Modifier<TState> | AsyncModifier<TState>)[] }[];
     explicitStateProps: (keyof TState)[];
+    sharedBindings: { [key: string]: SharedBindingRef };
     asyncInit: AsyncModifier<TState> | null;
 }
 

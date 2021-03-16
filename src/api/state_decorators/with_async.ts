@@ -29,10 +29,12 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
                 finalizer: null
             };
 
+            const stateMeta = Functions.ensureStateMeta(target);
+
             return Functions.addModifier(
                 target,
                 propertyKey,
-                { value: buildDebounceModifierFun<TState>(propNames, debounceMs, descriptor.value, asyncData) },
+                { value: buildDebounceModifierFun<TState>(propNames, debounceMs, stateMeta.emitters, descriptor.value, asyncData) },
                 propNames,
                 debounceAsyncData);
 
@@ -163,7 +165,7 @@ export interface IWithAsync<TState> {
 }
 
 
-function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, fun: AsyncModifier<TState>, asyncData: AsyncData) {
+function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, emitters: (keyof TState)[], fun: AsyncModifier<TState>, asyncData: AsyncData) {
 
     async function debounceModifierFun(getState: AsyncContext<TState> & ConComponent<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
 
@@ -171,7 +173,10 @@ function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceM
 
         if (!getState.isCancelled()) {
             const currentState = getState();
-            if (!cmpByPropsAll(originalState, currentState, propNames)) {
+
+            const runAlways = emitters.length > 0 && propNames.some(p => emitters.indexOf(p) >= 0);
+
+            if (runAlways || !cmpByPropsAll(originalState, currentState, propNames)) {
 
                 fun.asyncData = asyncData;
 
