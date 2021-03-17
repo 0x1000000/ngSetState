@@ -1,5 +1,8 @@
 ## 2.0.0
 * **StateTaraking**: The state can be tracked directly in component without an external class.
+* **BUG FIX**: @Emitter() works for Debounce().
+* **BUG FIX**: NuN === NuN in state comparison.
+
 
 ## 1.2.0
 * **BUG FIX**: @Emitter() works for input properties.
