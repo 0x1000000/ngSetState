@@ -8,6 +8,7 @@ import { cmpByProp, cmp } from './utils';
 import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription } from '../api/state_tracking';
 
 type PropertyKey = keyof any;
+type SharedPropMap = { [componentProp: string]: [Object, keyof any] };
 
 interface IStateTrackerSubscriber {
     onStateChange(sharedState: Object, state: Object, previous: Object);
@@ -38,7 +39,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private readonly _sharedState: Object | Object[] | null;
 
-    private readonly _sharedStatePropMap: { [componentProp: string]: [Object, keyof any] } | null;
+    private readonly _sharedStatePropMap: SharedPropMap | null;
 
     private readonly _subscribers: IStateTrackerSubscriber[] = [];
 
@@ -117,62 +118,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
         //Replacing with getters and setters with pointing to a shared state
         this._sharedState = this._options.getSharedStateTracker?.call(component, component);
-        if (this._sharedState) {
-
-            this._sharedStatePropMap = {};
-            const sss = new Set<keyof any>();
-            const sharedTrackers = this.ensureArray(this._sharedState);
-            const nameCollisionWatchDog = sharedTrackers.length > 1 ? new Set<string>() : null;
-            for (let i = 0; i < sharedTrackers.length; i++) {
-                const sharedTracker = sharedTrackers[i];
-                const bindings = Object.keys(stateMeta.sharedBindings);
-
-                if (bindings.length < 0) {
-                    throw new Error("The component shares a state tracker and it should have at least one binding to it.");
-                }
-
-                if (!sharedTracker[StateTrackerContext.contextRefPropertyId] || this === sharedTracker) {
-                    throw new Error("Only other state trackers can be specified as a shared state tracker");
-                }
-
-                for (const bindingProp of bindings) {
-
-                    const sharedBinding = stateMeta.sharedBindings[bindingProp];
-                    const sharedBindingProp = Array.isArray(sharedBinding)
-                        ? sharedBinding[1] == null || sharedBinding[1] === i
-                            ? sharedBinding[0]
-                            : null
-                        : sharedBinding;
-
-                    if (sharedBindingProp == null && sharedBinding[1] >= sharedTrackers.length) {
-                        throw new Error(`The index ${sharedBinding[1]} in  ${bindingProp}=> ${sharedBinding[0]} is out of the range`);
-                    }
-
-                    if (sharedBindingProp != null) {
-                        sss.add(sharedBindingProp);
-                    }
-
-                    if (sharedBindingProp != null && this.checkIsSetter(sharedTracker, sharedBindingProp)) {
-
-                        sss.delete(sharedBindingProp);
-
-                        if (nameCollisionWatchDog?.has(bindingProp)) {
-                            throw new Error(`Field name collision detected in shared state tarackes ("${bindingProp}"  to "${sharedBindingProp.toString()}"). You need to specify an index of a desired state tracker.`);
-                        }
-                        nameCollisionWatchDog?.add(bindingProp);
-
-                        this._sharedStatePropMap[bindingProp as any] = [sharedTracker, sharedBindingProp];
-
-                        this.replaceSharedMember(bindingProp, sharedBindingProp, sharedTracker);
-                    }
-                }
-            }
-
-            if (sss.size > 0) {
-                const fields = Array.from(sss).join(",");
-                throw new Error(`Could not find "${fields}" field(s) in the shared state tarcker. Make sure it is included in to the state.`);
-            }
-        }
+        this._sharedStatePropMap = this.connectToSharedTrackers();
 
         //Constructing stateTrackerHandler
         this._options.setHandler?.call(component, component,
@@ -187,6 +133,68 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             const init = stateMeta.asyncInit;
             setTimeout(() => AsyncState.pushModifiers(this, [init], this.state, {}));
         }
+    }
+
+    //It is called from constructor just to reduce its size
+    private connectToSharedTrackers(): SharedPropMap| null {
+        if (this._sharedState == null) {
+            return null;
+        }
+        const sharedStatePropMap = {};
+        const sharedPropsWatchDog = new Set<keyof any>();
+        const sharedTrackers = this.ensureArray(this._sharedState);
+        const nameCollisionWatchDog = sharedTrackers.length > 1 ? new Set<string>() : null;
+        for (let i = 0; i < sharedTrackers.length; i++) {
+            const sharedTracker = sharedTrackers[i];
+            const bindings = Object.keys(this._stateMeta.sharedBindings);
+
+            if (bindings.length < 0) {
+                throw new Error("The component shares a state tracker and it should have at least one binding to it.");
+            }
+
+            if (!sharedTracker[StateTrackerContext.contextRefPropertyId] || this === sharedTracker) {
+                throw new Error("Only other state trackers can be specified as a shared state tracker");
+            }
+
+            for (const bindingProp of bindings) {
+
+                const sharedBinding = this._stateMeta.sharedBindings[bindingProp];
+                const sharedBindingProp = Array.isArray(sharedBinding)
+                    ? sharedBinding[1] == null || sharedBinding[1] === i
+                        ? sharedBinding[0]
+                        : null
+                    : sharedBinding;
+
+                if (sharedBindingProp == null && sharedBinding[1] >= sharedTrackers.length) {
+                    throw new Error(`The index ${sharedBinding[1]} in  ${bindingProp}=> ${sharedBinding[0]} is out of the range`);
+                }
+
+                if (sharedBindingProp != null) {
+                    sharedPropsWatchDog.add(sharedBindingProp);
+                }
+
+                if (sharedBindingProp != null && this.checkIsSetter(sharedTracker, sharedBindingProp)) {
+
+                    sharedPropsWatchDog.delete(sharedBindingProp);
+
+                    if (nameCollisionWatchDog?.has(bindingProp)) {
+                        throw new Error(`Field name collision detected in shared state tarackes ("${bindingProp}"  to "${sharedBindingProp.toString()}"). You need to specify an index of a desired state tracker.`);
+                    }
+                    nameCollisionWatchDog?.add(bindingProp);
+
+                    sharedStatePropMap[bindingProp as any] = [sharedTracker, sharedBindingProp];
+
+                    this.replaceSharedMember(bindingProp, sharedBindingProp, sharedTracker);
+                }
+            }
+        }
+
+        if (sharedPropsWatchDog.size > 0) {
+            const fields = Array.from(sharedPropsWatchDog).join(",");
+            throw new Error(`Could not find "${fields}" field(s) in the shared state tarcker. Make sure it is included in to the state.`);
+        }
+
+        return sharedStatePropMap;
     }
 
     public modifyStateDiff(diff: Partial<ComponentState<TComponent>> | null): boolean {

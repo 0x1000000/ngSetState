@@ -1,5 +1,6 @@
 ## 2.0.0
-* **StateTaraking**: The state can be tracked directly in component without an external class.
+* **StateTracking**: The state can be tracked directly in component without an external class.
+* **Shared State Tracker**: State trackers can be shared between components.
 * **BUG FIX**: @Emitter() works for Debounce().
 * **BUG FIX**: NuN === NuN in state comparison.
 

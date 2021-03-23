@@ -1,9 +1,8 @@
-﻿import { Emitter, With, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription } from "../src/index";
+﻿import { Emitter, With, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription, BindToShared } from "../src/index";
 import { } from "jasmine";
 import { delayMs } from './helpers';
-import { EventEmitter } from '@angular/core';
+import { EventEmitter, Component } from '@angular/core';
 import { WithAsync } from "../src/api/state_decorators/with_async";
-import { BindToShared } from "../src/api/state_decorators/output_for";
 
 describe('State Tracking...', () => {
     it('Basic Immediate', async () => {
@@ -393,8 +392,14 @@ describe('State Tracking...', () => {
         }
 
         class Pro {
+
+            public subscription: ISharedStateChangeSubscription | null; 
+
+            public handler: IStateHandler<Pro>;
+
             constructor(s: Object[]) {
-                initializeStateTracking(this, { sharedStateTracker: s, immediateEvaluation: true }).subscribeSharedStateChange();
+                this.handler = initializeStateTracking<Pro>(this, { sharedStateTracker: s, immediateEvaluation: true });
+                this.subscription = this.handler.subscribeSharedStateChange();
             }
 
             @BindToShared<S>("arg", 0)
@@ -408,8 +413,13 @@ describe('State Tracking...', () => {
         }
 
         class Pro2 {
+            public subscription: ISharedStateChangeSubscription | null; 
+
+            public handler: IStateHandler<Pro2>;
+
             constructor(s: Object[]) {
-                initializeStateTracking(this, { sharedStateTracker: s, immediateEvaluation: true }).subscribeSharedStateChange();
+                this.handler = initializeStateTracking<Pro2>(this, { sharedStateTracker: s, immediateEvaluation: true });
+                this.subscription = this.handler.subscribeSharedStateChange();
             }
 
             @BindToShared<S>("arg", 1)
@@ -442,6 +452,28 @@ describe('State Tracking...', () => {
         expect(p.res).toBe(7);
         expect(s.res).toBe(8);
         expect(p2.res).toBe(8);
+
+        s.arg = 11;
+        s2.argS2 = 10;
+        s2.arg = 7;
+
+        expect(p.handler.getState().res).toBe(17);
+        expect(p2.handler.getState().res).toBe(12);
+
+        p.subscription?.unsubscribe();
+
+        s.arg = 23;
+        s2.argS2 = 22;
+        s2.arg = 27;
+
+        expect(p.handler.getState().res).toBe(17);//Unsubscribed
+        expect(p2.handler.getState().res).toBe(23 +1);//S.res
+
+        p2.subscription?.unsubscribe();
+
+        s.arg = 100;
+        expect(p2.handler.getState().res).toBe(23 + 1);//S.res unsubscribed
+
     });
 
     it('Debounce Emitter', async () => {
