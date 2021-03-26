@@ -1,6 +1,6 @@
 ## The idea
 There is an immutable object that represent all field values of some component.
-Each time when some field value (or several field values) of the angular component is changed, then a new immutable object will be created. It will contain all the old unchanged values and the new values.
+Each time when some field value (or several field values) of the angular component is changed, then a new immutable object will be created. It will contain all the old unchanged values and the new ones.
 
 By comparing the two objects, it can be determine what exact fields have values changed and if there are logical dependencies of these fields then the corresponding values evaluation should be performed. After the evaluation is done 3-rd object will be created which will contain the original values and the newly evaluated ones.
 
@@ -86,7 +86,7 @@ Further, some transition functions should be defined. For example:
 ```
 Each transition function receives an object that represent a current component state and should returns an object which contains only updated fields. That object will be merged into a copy of the current state object and then the new updated copy will become a new component state. 
 
-Optionally, you can add a second argument with which will receive a previous state object. 
+Optionally, you can add a second argument which will receive a previous state object. 
 
 *The transition function has been triggered since the library detected that some values of the fields declared in the decorator are different in the current state object in comparison with the previous one.*
 
@@ -340,7 +340,7 @@ and it is how it looks like:
 Screenshot
 
 ### Change Detection
-Obviously, the countdown woks asynchronously and it does not cause issues with the Angular change detection as long as the component detection strategy is “Default”. However, if the strategy is “OnPush”, then nothing can tell the component that its state is changing while the countdown is in progress.
+Obviously, the countdown woks asynchronously and this fact does not cause any issue with the Angular change detection as long as the component detection strategy is “Default”. However, if the strategy is “OnPush”, then nothing can tell the component that its state is changing while the countdown is in progress.
 
 Fortunately, we've already defined a callback function which is called each time when the component state has just changed, so the thing which is required is adding an explicit change detection there:
 
@@ -354,5 +354,5 @@ private onStateApplied(current: State, previous: State){
 ```
 Now it works as expected even with "OnPush" detection strategy.
 ## Shared State
-
+Typically, when a component is destroyed (e.g. hidden by ***ngIf**) then all still pending asynchronous operations initiated by that component end in nothing. However, the library allows extracting a component state with its transitions into a separate object which can live independently on the component. More other, such object can be shared between several components simultaneously!
 

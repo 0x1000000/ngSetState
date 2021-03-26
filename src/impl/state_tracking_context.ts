@@ -5,7 +5,7 @@ import { StateMeta } from './domain';
 import { IStateHolder } from '../api/i_with_state';
 import { EMITTER_SUFFIX } from './domain';
 import { cmpByProp, cmp } from './utils';
-import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription } from '../api/state_tracking';
+import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler } from '../api/state_tracking';
 
 type PropertyKey = keyof any;
 type SharedPropMap = { [componentProp: string]: [Object, keyof any] };
@@ -97,6 +97,9 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                         }
                     }
                 }
+                else if (this._options.includeAllPreDefinedFields && props.indexOf(key) < 0) {
+                    props.push(key);
+                }
             }
         }
 
@@ -121,12 +124,17 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         this._sharedStatePropMap = this.connectToSharedTrackers();
 
         //Constructing stateTrackerHandler
-        this._options.setHandler?.call(component, component,
-            {
-                getState: () => this.getState(),
-                modifyStateDiff: (diff) => this.modifyStateDiff(diff),
-                subscribeSharedStateChange: () => this.subscribeSharedStateChange()
-            });
+        this._options.setHandler?.call(component, component, buildHandler(this));
+
+        function buildHandler(context: StateTrackerContext<ComponentState<TComponent>>): IStateHandler<ComponentState<TComponent>> {
+            return {
+                getState: () => context.getState(),
+                modifyStateDiff: (diff) => context.modifyStateDiff(diff),
+                subscribeSharedStateChange: () => context.subscribeSharedStateChange(),
+                discardAsyncModifiers: () => context.discardAsyncModifiers(),
+                whenAll: () => context.whenAll()
+            }
+        }
 
         //Push async init
         if (stateMeta.asyncInit != null) {
@@ -392,6 +400,15 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         };
     }
 
+
+    public discardAsyncModifiers() {
+        AsyncState.discardAll(this);
+    }
+
+    public whenAll(): Promise<any> {
+        return AsyncState.whenAll(this);
+    }
+
     private onSharedStateChanged(sharedStateComponent: Object, newState: Object, previous: Object) {
         if (!this._sharedStatePropMap) {
             throw new Error("Shared state prop map should be set");
@@ -438,6 +455,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
     {
         const res: Required<StateTrackingOptions<TComponent>> = {
             immediateEvaluation: false,
+            includeAllPreDefinedFields: true,
             onStateApplied: null,
             getInitialState: null,
             setHandler: null,

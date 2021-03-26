@@ -1,7 +1,7 @@
 import { RunningPool } from "./running_pool";
 import { AsyncModifier, ASYNC_STATE, ConComponent } from './domain';
 import { IStateHolder } from './../api/i_with_state';
-import { checkPromise } from './utils';
+import { checkPromise, delayMs } from './utils';
 import { AsyncContext } from "../api/common";
 
 export class AsyncState<TState> {
@@ -15,11 +15,12 @@ export class AsyncState<TState> {
         instance.pushModifiers(modifiers, previousState, diff);
     }
 
-    public static async whenAll<TState>(component: IStateHolder<TState>): Promise<any> {
-        if (!component[ASYNC_STATE]) {
+    public static async whenAll<TState>(stateHolder: IStateHolder<TState>): Promise<any> {
+
+        if (stateHolder && !stateHolder[ASYNC_STATE]) {
             return;
         }
-        const asyncState = AsyncState.ensureComponentAsyncState(component);
+        const asyncState = AsyncState.ensureComponentAsyncState(stateHolder);
 
         while (true) {
             var arr = asyncState._pool.getAllPromises();
@@ -27,8 +28,17 @@ export class AsyncState<TState> {
             if (arr.length === 0) {
                 return;
             }
+
             await Promise.all(arr);
         }
+    }
+
+    public static discardAll<TState>(stateHolder: IStateHolder<TState>) {
+        if (stateHolder && !stateHolder[ASYNC_STATE]) {
+            return;
+        }
+        const asyncState = AsyncState.ensureComponentAsyncState(stateHolder);
+        asyncState._pool.discardAll();
     }
 
     private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
@@ -78,9 +88,11 @@ export class AsyncState<TState> {
                     } else if (mod.asyncData.behaviourOnError === "throw") {
                         throw error;
                     } else if (mod.asyncData.behaviourOnError.callMethod != null) {
-                        const errorDiff = mod.asyncData.behaviourOnError.callMethod(this._component.state, error);
-                        if (errorDiff != null) {
-                            this._component.modifyStateDiff(errorDiff);
+                        if (this._pool.exists(id)) { //if was not replaced
+                            const errorDiff = mod.asyncData.behaviourOnError.callMethod(this._component.state, error);
+                            if (errorDiff != null) {
+                                this._component.modifyStateDiff(errorDiff);
+                            }
                         }
                     } else {
                         throw new Error("Unknown error behaviour: " + mod.asyncData.behaviourOnError);

@@ -2,6 +2,7 @@ import { Constructor } from './common';
 import { Functions } from '../impl/functions';
 import { StateTrackerContext } from "../impl/state_tracking_context";
 import { EventEmitter } from '@angular/core';
+import { AsyncState } from '../impl/async_state';
 
 type PropOnlKey<T> = { [K in keyof T]: T[K] extends (Function | EventEmitter<any>) ? never : K }[keyof T];
 type PropOnly<T> = Pick<T, PropOnlKey<T>>;
@@ -11,6 +12,7 @@ export type ComponentStateDiff<T> = Partial<PropOnly<T>> | null;
 
 export type StateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
+    includeAllPreDefinedFields?: boolean | null,
     onStateApplied?: ((component: TComponent, state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     getInitialState?: ((component: TComponent) => ComponentStateDiff<TComponent> | null) | null,
     setHandler?: ((component: TComponent, handler: IStateHandler<TComponent>) => void) | null,
@@ -19,6 +21,7 @@ export type StateTrackingOptions<TComponent> = {
 
 export type InitStateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
+    includeAllPreDefinedFields?: boolean | null,
     onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     initialState?: ComponentStateDiff<TComponent> | null,
     sharedStateTracker?: Object | Object[] | null,
@@ -30,6 +33,10 @@ export interface IStateHandler<TComponent> {
     modifyStateDiff(diff: ComponentStateDiff<TComponent>);
 
     subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
+
+    discardAsyncModifiers();
+
+    whenAll(): Promise<any>;
 }
 
 export interface ISharedStateChangeSubscription {
@@ -51,6 +58,7 @@ export function initializeStateTracking<TComponent>(component: TComponent, optio
 
         contextOptions = {
             immediateEvaluation: options.immediateEvaluation ?? false,
+            includeAllPreDefinedFields: options.includeAllPreDefinedFields ?? true,
             onStateApplied: options.onStateApplied ? ((_, s, p) => options.onStateApplied?.call(component, s, p)) : null,
             getInitialState: (options.initialState != null ? (() => options.initialState) : null) as any,
             setHandler: null,
@@ -62,7 +70,9 @@ export function initializeStateTracking<TComponent>(component: TComponent, optio
     return {
         getState: () => tracker.getState(),
         modifyStateDiff: (d) => tracker.modifyStateDiff(d),
-        subscribeSharedStateChange: () => tracker.subscribeSharedStateChange()
+        subscribeSharedStateChange: () => tracker.subscribeSharedStateChange(),
+        discardAsyncModifiers: () => tracker.discardAsyncModifiers(),
+        whenAll: () => tracker.whenAll()
     };
 }
 

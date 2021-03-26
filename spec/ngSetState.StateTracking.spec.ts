@@ -24,6 +24,8 @@ describe('State Tracking...', () => {
                 }
             }
 
+            public handler: IStateHandler<any>;
+
             @Emitter()
             public arg1: number = -1;
 
@@ -41,7 +43,6 @@ describe('State Tracking...', () => {
 
             public resultAsync: number = 0;
 
-            @IncludeInState()
             public somePropWithValue: number = 17;
 
             public somePropWithoutValue: number;
@@ -56,6 +57,7 @@ describe('State Tracking...', () => {
             }
 
             public setHandler(h: IStateHandler<State>) {
+                this.handler = h;
                 h.modifyStateDiff({ arg1: 0 });
             }
 
@@ -134,10 +136,12 @@ describe('State Tracking...', () => {
         expect(component.result2).toBe(10);
         expect(component.result3).toBe(11);
         expect(resultCounter).toBe(3);
-        await delayMs(100);
+
+        await component.handler.whenAll();
+
         expect(component.resultAsync).toBe(15);
         expect(resultAsync).toBe(15);
-        expect(resultAsyncCounter).toBe(2)//2 - from the first instace of the component;
+        expect(resultAsyncCounter).toBe(2);//2 - from the first instance of the component;
 
         function sub() {
             component.resultChange.subscribe(e => {
@@ -232,13 +236,10 @@ describe('State Tracking...', () => {
             public arg1: number;
             public arg2: number = 0;
 
-            @IncludeInState()
             public sum: number = 0;
 
-            @IncludeInState()
             public sub: number = 0;
 
-            @IncludeInState()
             public mul: number = 0;
 
             @With("arg1", "arg2")
@@ -481,8 +482,13 @@ describe('State Tracking...', () => {
         type State = ComponentState<Component>;
         type NewState = ComponentStateDiff<Component>;
 
-        @StateTracking()
         class Component {
+
+            public handler: IStateHandler<any>;
+
+            constructor() {
+                this.handler = initializeStateTracking(this);
+            }
 
             @Emitter()
             arg: number = 5;
@@ -513,10 +519,119 @@ describe('State Tracking...', () => {
         await delayMs(1);
         component.arg = 5;
 
-        await delayMs(100);
+        await component.handler.whenAll();
 
         expect(component.result).toBe(6);
         expect(component.resultAsync).toBe(6);
 
+    });
+
+    it("Rollback Modification",
+        async () => {
+            @StateTracking()
+            class T {
+                public val: number = 0;
+                public val2: number = 0;
+
+                @With("val")
+                public static onVal(state: ComponentState<T>): ComponentStateDiff<T> {
+
+                    if (state.val > 100) {
+                        return null;
+                    }
+
+                    return { val: 0 };
+                }
+            }
+
+
+            var t = new T();
+
+            t.val = 1;
+
+            await delayMs(1);
+
+            expect(t.val).toBe(0);
+
+        });
+
+    it("Include All PreDefined Fields", () => {
+
+        class C {
+
+            public readonly handler: IStateHandler<ComponentState<C>>;
+
+            constructor(allPreDefined: boolean) {
+                this.handler = initializeStateTracking(this, { includeAllPreDefinedFields: allPreDefined, immediateEvaluation: true });
+            }
+
+            public defined = 17;
+            public notDefined: number;
+        }
+
+        let c = new C(false);
+        c.notDefined = 100;
+        let state = (c.handler as IStateHandler<ComponentState<C>>).getState();
+        expect(state.defined).toBeUndefined();
+        expect(state.notDefined).toBeUndefined();
+        expect(c.defined).toBe(17);
+        expect(c.notDefined).toBe(100);
+
+        c = new C(true);
+        c.notDefined = 100;
+        state = (c.handler as IStateHandler<ComponentState<C>>).getState();
+        expect(state.defined).toBe(17);
+        expect(state.notDefined).toBeUndefined();
+        expect(c.defined).toBe(17);
+        expect(c.notDefined).toBe(100);
+    });
+
+
+    it("Discard Async", async () => {
+
+        class C {
+
+            private readonly _handler: IStateHandler<ComponentState<C>>;
+
+            constructor() {
+                this._handler = initializeStateTracking<C>(this, { immediateEvaluation: true });
+            }
+
+            public getHandler(): IStateHandler<ComponentState<C>> {
+                return this._handler;
+            }
+
+            public arg: number = 0;
+
+            public arg2: number = 0;
+
+            @With("arg").Debounce(10)
+            static modifier1(state: ComponentState<C>): ComponentStateDiff<C> {
+                if (state.arg === 19) {
+                    return null;
+                }
+                return { arg: state.arg + 1 };
+            }
+
+            @WithAsync("arg2")
+            static async modifier2(getState: ()=> ComponentState<C>): Promise<ComponentStateDiff<C>> {
+                await delayMs(10);
+                if (getState().arg2 === 30) {
+                    return null;
+                }
+                return { arg2: getState().arg2 + 1 };
+            }
+        }
+
+        const c = new C();
+
+        c.arg = 17;
+        c.arg2 = 17;
+
+        await delayMs(50);//Several passes
+        c.getHandler().discardAsyncModifiers();
+        await c.getHandler().whenAll();
+        expect(c.arg).toBe(19);
+        expect(c.arg2).toBeLessThan(25);
     });
 });

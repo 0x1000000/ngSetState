@@ -75,6 +75,11 @@ export class RunningPool<TState> {
         return this._storage.findIndex(i => i.id === id) >= 0;
     }
 
+    public discardAll() {
+        this._storage.length = 0;
+        this._lockQueue.length = 0;
+    }
+
     public getById(id: number): RunningModifier<TState> {
         const oldItemIndex = this._storage.findIndex(i => i.id === id);
         if (oldItemIndex >= 0) {

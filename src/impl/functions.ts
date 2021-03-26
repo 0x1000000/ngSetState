@@ -177,7 +177,7 @@ export class Functions {
         }
         const currentState = Functions.cloneStateObject(previousState, diff, stateMeta, freeze);
 
-        if (currentState === previousState && stateMeta.emitters.length < 0) {
+        if (currentState === previousState && stateMeta.emitters.length <= 0) {
             return { newState: currentState, asyncModifiers: null, emitterProps: null };
         }
 
@@ -189,6 +189,7 @@ export class Functions {
     {
         let watchDog = 1000;
         let diffKeys = Object.keys(diff) as (keyof TState)[];
+        const originalDiffKeys = diffKeys;
         let modifiers: (Modifier<TState> | AsyncModifier<TState>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
         let asyncModifiers: AsyncModifier<TState>[] | null = null;
@@ -220,7 +221,9 @@ export class Functions {
                     addEmitters(diffKeys);
 
                     const hasChanges: boolean = diffKeys.some(dk => !cmpByProp(previousState, diff as TState, dk))
-                        || Functions.diffHasEmitter(diffKeys, null, stateMeta);
+                        || Functions.diffHasEmitter(diffKeys, null, stateMeta)
+                        //It allows modifiers to rollback the change 
+                        || (diffKeys !== originalDiffKeys && diffKeys.some(dk => originalDiffKeys.indexOf(dk)>=0));
 
                     if (hasChanges) {
                         previousState = currentState;
