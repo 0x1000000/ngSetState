@@ -18,6 +18,7 @@ interface IStateTrackerRef {
     subscribeTracker(subscriber: IStateTrackerSubscriber);
     releaseTracker(subscriber: IStateTrackerSubscriber);
     getState(): Object;
+    release: () => void;
 }
 
 export class StateTrackerContext<TComponent> implements IStateHolder<ComponentState<TComponent>> {
@@ -43,6 +44,16 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private readonly _subscribers: IStateTrackerSubscriber[] = [];
 
+    private _subscription: ISharedStateChangeSubscription | null = null;
+
+    public static releaseComponent<TComponent>(component: TComponent) {
+        const ref: IStateTrackerRef = component[StateTrackerContext.contextRefPropertyId];
+        if (!ref) {
+            throw new Error("This component was not initialized with a state tracker");
+        }
+        ref.release();
+    }
+
     constructor(component: TComponent, stateMeta: StateMeta<any>, options: StateTrackingOptions<TComponent> | null |undefined) {
 
         if (component[StateTrackerContext.contextRefPropertyId]) {
@@ -59,7 +70,8 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 }
                 this._subscribers.splice(sIndex, 1);
             },
-            getState: () => this.state
+            getState: () => this.state,
+            release: () => this.release()
         };
 
         component[StateTrackerContext.contextRefPropertyId] = ref;
@@ -79,7 +91,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         //finds EventEmitters
         for (const key of Object.keys(this._component)) {
             const value = component[key];
-            if (value != undefined) {               
+            if (value !== undefined) {               
                 if (externalState != null && externalState === value) {
                     continue;
                 }
@@ -97,7 +109,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                         }
                     }
                 }
-                else if (this._options.includeAllPreDefinedFields && props.indexOf(key) < 0) {
+                else if (this._options.includeAllPredefinedFields && props.indexOf(key) < 0) {
                     props.push(key);
                 }
             }
@@ -131,8 +143,8 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 getState: () => context.getState(),
                 modifyStateDiff: (diff) => context.modifyStateDiff(diff),
                 subscribeSharedStateChange: () => context.subscribeSharedStateChange(),
-                discardAsyncModifiers: () => context.discardAsyncModifiers(),
-                whenAll: () => context.whenAll()
+                whenAll: () => context.whenAll(),
+                release: () => context.release()
             }
         }
 
@@ -386,6 +398,10 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             return null;
         }
 
+        if (this._subscription != null) {
+            throw new Error("State tracker has already been subscribed to shared state changes");
+        }
+
         const refs: IStateTrackerRef[] = this.ensureArray(this._sharedState).map(ss => ss[StateTrackerContext.contextRefPropertyId]) ;
 
         const subscribers: IStateTrackerSubscriber[] = [];
@@ -395,14 +411,23 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             subscribers.push(subscriber);
         }
 
-        return {
-            unsubscribe: () => refs.forEach((ref, i) => ref.releaseTracker(subscribers[i]))
+        this._subscription = {} as ISharedStateChangeSubscription;
+
+        this._subscription.unsubscribe = () => {
+            refs.forEach((ref, i) => ref.releaseTracker(subscribers[i]));
+            this._subscription = null;
         };
+
+        return this._subscription;
     }
 
-
-    public discardAsyncModifiers() {
+    public release() {
         AsyncState.discardAll(this);
+
+        if (this._subscription != null) {
+            this._subscription.unsubscribe();
+            this._subscription = null;
+        }
     }
 
     public whenAll(): Promise<any> {
@@ -454,17 +479,13 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         : StateTrackingOptions<TComponent>
     {
         const res: Required<StateTrackingOptions<TComponent>> = {
-            immediateEvaluation: false,
-            includeAllPreDefinedFields: true,
-            onStateApplied: null,
-            getInitialState: null,
-            setHandler: null,
-            getSharedStateTracker: null
+            immediateEvaluation: options?.immediateEvaluation ?? false,
+            includeAllPredefinedFields: options?.includeAllPredefinedFields ?? false,
+            onStateApplied: options?.onStateApplied ?? null,
+            getInitialState: options?.getInitialState ?? null,
+            setHandler: options?.setHandler ?? null,
+            getSharedStateTracker: options?.getSharedStateTracker ?? null
         };
-
-        if (options != null) {
-            return Object.assign(res, options);
-        }
 
         return res;
     }

@@ -1,8 +1,9 @@
-﻿import { Emitter, With, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription, BindToShared } from "../src/index";
+﻿import { Emitter, With,Calc, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription, BindToShared } from "../src/index";
 import { } from "jasmine";
 import { delayMs } from './helpers';
-import { EventEmitter, Component } from '@angular/core';
+import { EventEmitter } from '@angular/core';
 import { WithAsync } from "../src/api/state_decorators/with_async";
+import { releaseStateTracking } from "../src/api/state_tracking";
 
 describe('State Tracking...', () => {
     it('Basic Immediate', async () => {
@@ -43,6 +44,7 @@ describe('State Tracking...', () => {
 
             public resultAsync: number = 0;
 
+            @IncludeInState()
             public somePropWithValue: number = 17;
 
             public somePropWithoutValue: number;
@@ -231,9 +233,10 @@ describe('State Tracking...', () => {
 
     it('Shared State', () => {
 
-        @StateTracking({ immediateEvaluation: true })
+        @StateTracking({ immediateEvaluation: true, includeAllPredefinedFields: true })
         class SharedState {
             public arg1: number;
+
             public arg2: number = 0;
 
             public sum: number = 0;
@@ -557,20 +560,40 @@ describe('State Tracking...', () => {
 
     it("Include All PreDefined Fields", () => {
 
+        @StateTracking({ includeAllPredefinedFields: true, immediateEvaluation: true })
+        class Shared {
+            public sharedMember: string | null = null;
+        }
+
+        const s = new Shared();
+
         class C {
 
             public readonly handler: IStateHandler<ComponentState<C>>;
 
             constructor(allPreDefined: boolean) {
-                this.handler = initializeStateTracking(this, { includeAllPreDefinedFields: allPreDefined, immediateEvaluation: true });
+                this.handler = initializeStateTracking(this,
+                    {
+                        includeAllPredefinedFields: allPreDefined,
+                        immediateEvaluation: true,
+                        sharedStateTracker: s
+                    });
             }
 
             public defined = 17;
+
             public notDefined: number;
+
+            @BindToShared()
+            public sharedMember: string | null;
         }
 
         let c = new C(false);
         c.notDefined = 100;
+        expect(c.sharedMember).toBe(null);
+        c.sharedMember = "Shared";
+        expect(s.sharedMember).toBe("Shared");
+
         let state = (c.handler as IStateHandler<ComponentState<C>>).getState();
         expect(state.defined).toBeUndefined();
         expect(state.notDefined).toBeUndefined();
@@ -629,9 +652,68 @@ describe('State Tracking...', () => {
         c.arg2 = 17;
 
         await delayMs(50);//Several passes
-        c.getHandler().discardAsyncModifiers();
-        await c.getHandler().whenAll();
+        c.getHandler().release();
+        await delayMs(150);//Several passes
         expect(c.arg).toBe(19);
         expect(c.arg2).toBeLessThan(25);
+    });
+
+    it("Dispose Subscriptions", ()=> {
+        @StateTracking({ includeAllPredefinedFields: true, immediateEvaluation: true })
+        class Shared {
+            public sharedMember: string | null = null;
+        }
+
+        const s = new Shared();
+
+        @StateTracking<C>({
+            immediateEvaluation: true,
+            getSharedStateTracker: () => s,
+            setHandler: (c, h) => c.handler = h
+        })
+        class C {
+
+            handler: IStateHandler<C>;
+            
+            @BindToShared()
+            sharedMember: string | null = null;
+
+            @Calc(["sharedMember"], s => s.sharedMember + ((s as any).depOnShared??"") + "_2")
+            depOnShared: string | null = null;
+        }
+
+        const c = new C();
+
+        s.sharedMember = "Value1";
+        expect(c.depOnShared).toBe(null);
+
+        let subsc = c.handler.subscribeSharedStateChange();
+
+        expect(() => c.handler.subscribeSharedStateChange()).toThrow();
+
+        s.sharedMember = "Value2";
+
+        expect(c.depOnShared).toBe("Value2_2");
+
+        releaseStateTracking(c);
+        releaseStateTracking(c);
+
+        expect(() => subsc?.unsubscribe()).toThrow();
+
+        s.sharedMember = "Value3";
+
+        expect(c.depOnShared).toBe("Value2_2");
+
+        subsc = c.handler.subscribeSharedStateChange();
+
+        s.sharedMember = "Value4";
+
+        expect(c.depOnShared).toBe("Value4Value2_2_2");
+
+        subsc?.unsubscribe();
+
+        s.sharedMember = "Value5";
+
+        expect(c.depOnShared).toBe("Value4Value2_2_2");
     });
 });
