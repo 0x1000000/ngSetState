@@ -3,9 +3,7 @@
 ## About
 
 A library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.
-* [Angular Components with Extracted Immutable State](https://itnext.io/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3) - an article on Medium that explains the ideas of this library.
-* [Demo Site](https://0x1000000.github.io/ngSetState/)
-* [Demo Code](https://github.com/0x1000000/ngSetState/tree/master/demo/src/app)
+* [Demo Site (stackblitz.com)](https://stackblitz.com/edit/set-state-greet)
 * [CHANGELOG](https://github.com/0x1000000/ngSetState/blob/master/CHANGELOG.md)
 
 ## Advantages of using the library
