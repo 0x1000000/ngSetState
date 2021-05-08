@@ -716,4 +716,112 @@ describe('State Tracking...', () => {
 
         expect(c.depOnShared).toBe("Value4Value2_2_2");
     });
+
+    it("Counter Test  - onStateApplied to stack", async () => {
+
+        class CounterState{
+            constructor(){
+                initializeStateTracking(this, {immediateEvaluation: true, includeAllPredefinedFields: true});
+            }
+
+            counter: number = 0;
+        }
+
+        class Component implements CounterState {
+            constructor(id: string, cs: CounterState){
+                this.id = id;
+                const h = initializeStateTracking(this, {immediateEvaluation: true, sharedStateTracker:[cs]});
+
+                h.subscribeSharedStateChange();
+            }
+
+            @IncludeInState()
+            readonly id: string
+
+            @BindToShared()
+            counter: number = 0;
+
+            @IncludeInState()
+            isEmpty: boolean = false;
+
+            @IncludeInState()
+            isInit: boolean = false;
+
+            @IncludeInState()
+            isError: boolean = false;
+
+
+            @With("isEmpty", "isInit")
+            static er(s: ComponentState<Component>): ComponentStateDiff<ComponentState<Component>>{
+                return {
+                    isError: s.isEmpty && s.isInit
+                };
+            }
+
+            @With("isError")
+            static inc(s: ComponentState<Component>): ComponentStateDiff<ComponentState<Component>>{
+                if(s.isError){
+                    return {
+                        counter: s.counter+1
+                    };    
+                }
+                else{
+                    return {
+                        counter: s.counter-1
+                    };
+                }
+            }
+        }
+
+        class ComponentHost implements CounterState {
+
+            controls: Component[] = [];
+
+            constructor(cs: CounterState){
+                initializeStateTracking(this, {
+                    immediateEvaluation: true,
+                    sharedStateTracker: [cs],
+                    onStateApplied: ()=> {
+                        let f: Component| null = null;
+                        for(const c of this.controls) {
+                            if(f == null){
+                                f = c;
+                            }
+                            else {
+                                c.isInit = f.isInit;
+                            }
+                        }
+                    }
+                }).subscribeSharedStateChange();
+            }
+
+            @BindToShared()
+            counter: number = 0;
+        }
+
+        const s = new CounterState();
+
+        const cHost = new ComponentHost(s);
+        const c1 = new Component("1", s);
+        const c2 = new Component("2", s);
+        cHost.controls = [c1,c2];
+
+        c1.isInit = false;
+        c2.isInit = false;
+
+        c1.isEmpty = true;
+        c2.isEmpty = true;
+
+        await delayMs(2);
+
+        c1.isInit = true;
+        c1.isEmpty = false;
+
+        c2.isInit = true;
+        c2.isEmpty = true;
+
+        expect(c1.counter).toBe(1);
+        expect(c2.counter).toBe(1);
+        expect(cHost.counter).toBe(1);
+    });
 });

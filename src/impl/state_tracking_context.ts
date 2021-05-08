@@ -21,10 +21,47 @@ interface IStateTrackerRef {
     release: () => void;
 }
 
+class StateTrackerEventQueue {
+    private readonly _queue: { component: any, callback: () => void }[] = [];
+
+    private _counter: number = 0;
+
+    public initUpdating(): void {
+        this._counter++;
+    }
+
+    public add(component: any, callback: () => void): void {
+        const index = this._queue.findIndex(i => i.component === component);
+        if (index >= 0) {
+            this._queue.splice(index, 1);
+        }
+        this._queue.push({ component, callback });
+    }
+
+    public releaseUpdating(): void {
+        this._counter--;
+        if (this._counter < 0) {
+            this._counter = 0;
+        }
+
+        if (this._counter === 0) {
+            if (this._queue.length > 0) {
+                const copy = [...this._queue];
+                this._queue.length = 0;
+                for (const i of copy) {
+                    i.callback();//Callback might affect queue
+                }
+            }
+        }
+    }
+}
+
 export class StateTrackerContext<TComponent> implements IStateHolder<ComponentState<TComponent>> {
     public state: ComponentState<TComponent>;
 
     private static readonly contextRefPropertyId: symbol = Symbol();
+
+    private static readonly notifyQueue = new StateTrackerEventQueue();
 
     private _callbackIsScheduled: boolean = false;
 
@@ -221,71 +258,83 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         if (diff == null) {
             return false;
         }
+        StateTrackerContext.notifyQueue.initUpdating();
+        try {
+            let previousState = this.state;
 
-        let previousState = this.state;
+            const { newState, asyncModifiers, emitterProps: alwaysEmittedProps } =
+                Functions.updateCycle(this._stateMeta, previousState, diff, true);
 
-        const { newState, asyncModifiers, emitterProps: alwaysEmittedProps } = Functions.updateCycle(this._stateMeta, previousState, diff, true);
+            this.state = newState;
 
-        this.state = newState;
+            const result = this.state !== previousState;
 
-        const result = this.state !== previousState;
-
-        //Add missing getters and setters if a prop returned by a modifier
-        const newStateKeys = Object.keys(newState);
-        for (const p of newStateKeys) { 
-            if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
-                if (!(this._component[p] instanceof EventEmitter)) {
-                    this.replaceMember(p, false);
+            //Add missing getters and setters if a prop returned by a modifier
+            const newStateKeys = Object.keys(newState);
+            for (const p of newStateKeys) {
+                if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
+                    if (!(this._component[p] instanceof EventEmitter)) {
+                        this.replaceMember(p, false);
+                    }
                 }
-            }
 
-            //Copy to shared state
-            if (this._sharedState != null) {
-                const sharedProp = this._sharedStatePropMap![p as any];
-                if (sharedProp != null) {
-                    const desc = Object.getOwnPropertyDescriptor(sharedProp[0], sharedProp[1]);
-                    if (desc != null && desc.set != null && !cmpByProp(previousState,newState,p)) {
-                        desc.set.call(sharedProp[0], newState[p]);
+                //Copy to shared state
+                if (this._sharedState != null) {
+                    const sharedProp = this._sharedStatePropMap![p as any];
+                    if (sharedProp != null) {
+                        const desc = Object.getOwnPropertyDescriptor(sharedProp[0], sharedProp[1]);
+                        if (desc != null && desc.set != null && !cmpByProp(previousState, newState, p)) {
+                            desc.set.call(sharedProp[0], newState[p]);
+                        }
+                    }
+                }
+
+            }
+            //Emit outputs
+            if (result || alwaysEmittedProps != null) {
+                for (const emitterProp of Object.keys(this._emittersDict)) {
+
+                    let checkAlwaysEmittedProps = true;
+                    if (result) {
+                        if (!cmpByProp(newState, previousState, emitterProp)) {
+                            this._emittersDict[emitterProp].emit(newState[emitterProp]);
+                            checkAlwaysEmittedProps = false;
+                        }
+                    }
+
+                    if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
+                        if (alwaysEmittedProps.indexOf(emitterProp) >= 0) {
+                            this._emittersDict[emitterProp].emit(newState[emitterProp]);
+                        }
                     }
                 }
             }
 
-        }
-        //Emit outputs
-        if (result || alwaysEmittedProps != null) {
-            for (const emitterProp of Object.keys(this._emittersDict)) {
+            if (asyncModifiers && asyncModifiers.length > 0) {
+                AsyncState.pushModifiers(this, asyncModifiers, previousState, diff);
+            }
 
-                let checkAlwaysEmittedProps = true;
-                if (result) {
-                    if (!cmpByProp(newState, previousState, emitterProp)) {
-                        this._emittersDict[emitterProp].emit(newState[emitterProp]);
-                        checkAlwaysEmittedProps = false;
-                    }
-                }
-
-                if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
-                    if (alwaysEmittedProps.indexOf(emitterProp) >= 0) {
-                        this._emittersDict[emitterProp].emit(newState[emitterProp]);
-                    }
+            if (this._subscribers.length > 0 && result) {
+                for (const subscriber of this._subscribers) {
+                    subscriber.onStateChange(this._component, this.state, previousState);
                 }
             }
-        }
 
-        if (result && this._options.onStateApplied != null) {
-            this._options.onStateApplied.call(this._component, this._component, this.state, previousState);
-        }
-
-        if (asyncModifiers && asyncModifiers.length > 0) {
-            AsyncState.pushModifiers(this, asyncModifiers, previousState, diff);
-        }
-
-        if (this._subscribers.length > 0 && result) {
-            for (const subscriber of this._subscribers) {
-                subscriber.onStateChange(this._component, this.state, previousState);
+            if (result && this._options.onStateApplied != null) {
+                //onStateApplied might lead to further state modification, so the call should be pushed out of the update cycle
+                StateTrackerContext.notifyQueue.add(
+                    this._component,
+                    () => this._options.onStateApplied?.call(
+                        this._component,
+                        this._component,
+                        this.state,
+                        previousState));
             }
-        }
 
-        return result;
+            return result;
+        } finally {
+            StateTrackerContext.notifyQueue.releaseUpdating();
+        }
     }
 
     public getState(): ComponentState<TComponent> {
@@ -314,15 +363,18 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             });
     }
 
-    private replaceSharedMember(prop: PropertyKey, sharedProp: PropertyKey, sharedState: Object) {
+    private replaceSharedMember(prop: PropertyKey, sharedProp: PropertyKey, sharedTracker: Object) {
 
         const existingDescriptor = Object.getOwnPropertyDescriptor(this._component, prop);
+
+        //Copy value from shared tracker
+        this.state[prop] = sharedTracker[sharedProp];
 
         Object.defineProperty(this._component,
             prop,
             {
                 get: () => {
-                    return sharedState[sharedProp];
+                    return sharedTracker[sharedProp];
                 },
                 set: (val) => {
                     if (existingDescriptor?.set) {
@@ -332,7 +384,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
                         existingDescriptor.set.call(this, val);
                     } else {//modifyStateDiff will update it
-                        sharedState[sharedProp] = val;
+                        sharedTracker[sharedProp] = val;
                     }
                 },
                 enumerable: true

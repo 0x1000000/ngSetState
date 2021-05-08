@@ -1,3 +1,7 @@
+## 2.0.1
+* **BUG FIX**: Properties bound to a shared state now takes initial value from a bounded property.
+* **BUG FIX**: Call of **onStateApplied** is extracted out of a cascade of state modifications (if **onStateApplied** leads to new modifications).
+
 ## 2.0.0
 * **StateTracking**: The state can be tracked directly in component without an external class.
 * **Shared State Tracker**: State trackers can be shared between components.

@@ -3,6 +3,7 @@
 ## About
 
 A library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.
+* [Tutorial](https://itnext.io/angular-components-state-tracking-with-ng-set-state-e2b988540407?source=friends_link&sk=9a3596275dc73f72882fe2ec519b4528)
 * [Demo Site (stackblitz.com)](https://stackblitz.com/edit/set-state-greet)
 * [CHANGELOG](https://github.com/0x1000000/ngSetState/blob/master/CHANGELOG.md)
 

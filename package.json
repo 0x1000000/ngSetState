@@ -1,6 +1,6 @@
 {
   "name": "ng-set-state",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Library that helps developing angular components in a more functional style where UI logic is representing as a series of morphisms of immutable states.",
   "main": "dist/index.js",
   "es2015": "dist/index.es2015.js",
@@ -40,6 +40,7 @@
     "jasmine-ts": "^0.3.0",
     "nyc": "^14.0.0",
     "rollup": "^1.32.1",
+    "rollup-plugin-license": "^2.3.0",
     "rollup-plugin-typescript2": "^0.26.0",
     "ts-node": "~8.3.0",
     "tslib": "^2.0.0",
