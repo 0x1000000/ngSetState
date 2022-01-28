@@ -7,6 +7,7 @@ A library that helps developing angular components in a more functional style wh
 * [Tutorial](https://itnext.io/angular-components-state-tracking-with-ng-set-state-e2b988540407?source=friends_link&sk=9a3596275dc73f72882fe2ec519b4528)
 * [Angular Components with Extracted Immutable State](https://medium.com/@0x1000000/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3) - an article on Medium that explains the ideas of this library.
 * [Demo Site (stackblitz.com)](https://stackblitz.com/edit/set-state-greet)
+* Demo Application - you can find a realistic usage of the library in this ASP.Net demo application - [SqGoods](https://github.com/0x1000000/SqGoods)
 
 ## Table of Contents
 
