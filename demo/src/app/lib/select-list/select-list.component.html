@@ -1,0 +1,41 @@
+<div *ngFor="let i of viewItems"
+    class="l-item"
+    [class.l-item-focused]="i.focused && !i.selected"
+    [class.l-item-selected]="i.selected"
+    [class.l-item-none]="isNoneModel(i.model)"
+    #el
+    life-cycle (onInit)="onItemInit(i, el)"
+    (mouseenter)="onItemMouseEnter(i)"
+    (mousemove)="onItemMouseMove(i)"
+    (click)="onItemClick(i)"
+>
+    <ng-container *ngTemplateOutlet="itemTemplate;context: i.templateContext"></ng-container>
+</div>
+<ng-template #itemTemplateDefault let-itemText="text">
+    {{itemText}}
+</ng-template>
+<style>
+    .l-item {
+        padding: 5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .l-item-focused {
+        background-color: var(--t-secondary-select-color);
+        color: var(--t-secondary-select-color-opposite);
+    }
+
+    .l-item-selected {
+        background-color: var(--t-primary-select-color);
+        color: var(--t-primary-select-color-opposite);
+    }
+
+    .l-item-none {
+        border-bottom: 1px solid var(--t-border-color);
+        font-style: italic;
+    }
+</style>

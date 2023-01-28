@@ -1,0 +1,77 @@
+<ng-container *ngFor="let p of popups">
+  <div 
+    *ngIf="!p.overlay"
+    class="l-popup"
+    [style.top.px]="p.rect.top" 
+    [style.left.px]="p.rect.left" 
+    [style.bottom.px]="p.rect.bottom" 
+    [style.right.px]="p.rect.right" 
+    [style.width.px]="p.rect.width" 
+    [style.height.px]="p.rect.height"
+    [style.z-index]="p.rect.zIndex"
+  >
+    <ng-container [ngTemplateOutlet]="p.tr"></ng-container>
+  </div>
+  <div class="l-o l-overlay" *ngIf="p.overlay">
+    <div     
+      class="l-popup"
+      [class.l-popup-center]="isCenter(p)"
+      [style.top.px]="p.rect.top" 
+      [style.left.px]="p.rect.left" 
+      [style.bottom.px]="p.rect.bottom" 
+      [style.right.px]="p.rect.right" 
+      [style.width.px]="p.rect.width" 
+      [style.height.px]="p.rect.height"
+      [style.z-index]="p.rect.zIndex"
+    >
+      <ng-container [ngTemplateOutlet]="p.tr"></ng-container>
+    </div>
+
+    <ng-container *ngFor="let pInO of inOverlayPopups">
+      <div 
+        class="l-popup"
+        [style.top.px]="pInO.rect.top" 
+        [style.left.px]="pInO.rect.left" 
+        [style.bottom.px]="pInO.rect.bottom" 
+        [style.right.px]="pInO.rect.right" 
+        [style.width.px]="pInO.rect.width" 
+        [style.height.px]="pInO.rect.height"
+        [style.z-index]="pInO.rect.zIndex"
+      >
+        <ng-container [ngTemplateOutlet]="pInO.tr"></ng-container>
+      </div>
+    </ng-container>
+  </div>
+</ng-container>
+<style>
+ .l-overlay{
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #00000020;
+    pointer-events: all;
+    animation: l-overlay-appear 0.4s ease-out;
+  }
+
+  @keyframes l-overlay-appear {
+    0% {
+      background: #00000000;
+    }
+    100% {
+      background: #00000020;
+    }
+}  
+
+  .l-popup {
+    position: absolute;
+    pointer-events: initial;
+  }
+
+  .l-popup-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);    
+  }
+</style>

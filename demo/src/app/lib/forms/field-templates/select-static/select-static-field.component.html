@@ -1,0 +1,18 @@
+<drop-down-list
+  *ngIf="descriptor && fieldData"
+  [items]="descriptor.items" 
+  [idMember]="descriptor.idMember" 
+  [textMember]="descriptor.textMember"
+  [selected]="value"
+  [multi]="descriptor.multi"
+  [disabled]="fieldData.disabled"
+  [isError]="fieldData.isVisibleError"
+  (selectedChange)="setSelected($event)">
+</drop-down-list>
+<style>
+  drop-down-list{
+    display: inline-block;
+    vertical-align: top;
+    width: 250px;
+  }
+</style>

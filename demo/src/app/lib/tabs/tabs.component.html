@@ -1,0 +1,42 @@
+<nav class="st-tabs-bar">
+  <ng-content select="tabs-left-area"></ng-content>
+  <ng-container *ngFor="let pane of panes;let i = index">
+    <tab-label
+      *ngIf="!pane.href"
+      draggable="false"
+      [pane]="pane"
+      [index]="i"
+      (click)=onTabLabelClick(pane)
+    ></tab-label>
+    <a *ngIf="pane.href" [attr.href]="pane.href" (click)="onLinkClick($event, pane)" draggable="false">
+      <tab-label        
+        [pane]="pane"
+        [index]="i"
+      ></tab-label>  
+    </a>
+  </ng-container>
+  <div *ngIf="inkPosition" class="st-ink-bar" [style.left.px]="inkPosition[0]" [style.width.px]="inkPosition[1]"></div>
+  <ng-content select="tabs-right-area"></ng-content>
+</nav>
+<ng-content>
+
+</ng-content>
+<style>
+  :host {
+    display: block;
+  }
+
+  .st-tabs-bar{
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .st-ink-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background-color: var(--t-primary-select-color);
+    transition: .3s cubic-bezier(.35,0,.25,1);
+}
+</style>

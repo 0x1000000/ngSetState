@@ -1,15 +1,17 @@
 <h2>Dropdown 1</h2>
-<drop-down [items]="state.countryList" idMember="code" textMember="name" [selected]="state.selectedCountry" (selectedChange)="modifyState('selectedCountry', $event)"></drop-down>
+<drop-down-list [items]="countryList" idMember="code" textMember="name" [selected]="selectedCountry" (selectedChange)="selectedCountry = $event">
+
+</drop-down-list>
 <h2>Dropdown 2 (mirror)</h2>
-<drop-down [items]="state.countryList"
+<drop-down-list [items]="countryList"
             idMember="code"
             textMember="name"
-            [selected]="state.selectedCountry"
-            (selectedChange)="modifyState('selectedCountry', $event)"
-            [itemTemplate]="state.itemTemplate">
-</drop-down>
+            [selected]="selectedCountry"
+            (selectedChange)="selectedCountry = $event"
+            [itemTemplate]="itemTemplate">
+</drop-down-list>
 <div>
-    <checkbox [checked]="state.useCustomTemplate" (checkedChange)="modifyState('useCustomTemplate', $event)">
+    <checkbox [checked]="useCustomTemplate" (checkedChange)="useCustomTemplate = $event">
         Use custom item template for the second dropdown (with a country flag)
     </checkbox>
 </div>
@@ -22,7 +24,7 @@
 </ng-template>
 <style>
 
-    drop-down {
+    drop-down-list {
         width: 300px;
     }
     .l-horizontal-pane {

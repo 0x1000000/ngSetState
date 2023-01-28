@@ -1,0 +1,17 @@
+<drop-down-list
+  *ngIf="fieldData"
+  [items]="items" 
+  [idMember]="'id'" 
+  [textMember]="'title'"
+  [selected]="value"
+  [disabled]="fieldData.disabled"
+  [isError]="fieldData.isVisibleError"
+  (selectedChange)="setSelected($event)">
+</drop-down-list>
+<style>
+  drop-down-list{
+    display: inline-block;
+    width: 250px;
+    vertical-align: top;
+  }
+</style>

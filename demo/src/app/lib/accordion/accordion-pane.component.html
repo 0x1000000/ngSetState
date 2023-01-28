@@ -1,0 +1,40 @@
+<div class="accordion-pane-tab disable-text-selection" [class.selected]="isSelected" [class.is-first]="isFirst" (click)="onTabClick()">
+  <ng-content select="accordion-pane-label"></ng-content>
+</div>
+<div 
+  [@openClose]="animationState" 
+  (@openClose.done)="onAnimationDone()"
+  class="accordion-pane-content">
+  <ng-content *ngIf="!isHidden" select="accordion-pane-content"></ng-content>
+</div>
+
+<style>
+.accordion-pane-tab{
+  padding: 10px;
+  font-size: 1.2rem;
+}
+
+.accordion-pane-tab:not(.selected){
+  border-top: 1px solid var(--t-border-color-hover);
+  cursor: pointer;
+}
+
+.accordion-pane-tab:not(.selected):hover{
+  background-color: var(--t-secondary-select-color);
+  transition: background-color .3s ease-in;
+}
+
+.accordion-pane-tab.is-first{
+  border-top: 1px solid transparent;
+}
+
+.accordion-pane-tab.selected{
+  border-top: 1px solid transparent;
+  border-right: 2px solid var(--t-primary-select-color);
+  background-color: var(--t-secondary-select-color);
+}
+
+.accordion-pane-content{
+  overflow: hidden;
+}
+</style>

@@ -1,30 +1,34 @@
-import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy, OnChanges, SimpleChanges, OnInit, AfterViewInit, ViewChild} from '@angular/core';
-import { WithStateBase } from "ng-set-state";
-import { DropDownDemoState } from "./drop-down-demo.state";
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, OnDestroy, OnInit, ViewChild} from '@angular/core';
+import { Calc, initializeStateTracking } from "ng-set-state";
+import { Country, countryList } from '../Countries';
 
 @Component({
     selector: 'drop-down-demo',
     changeDetection: ChangeDetectionStrategy.OnPush,
-    templateUrl: "./drop-down-demo.component.html",
-    inputs: DropDownDemoState.ngInputs,
-    outputs: DropDownDemoState.ngOutputs,
+    templateUrl: "./drop-down-demo.component.html"
 })
-export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+export class DropDownDemoComponent implements OnInit, OnDestroy {
 
-    public state: DropDownDemoState;
+    constructor(private _cd: ChangeDetectorRef) {
+        initializeStateTracking<DropDownDemoComponent>(this, {
+            includeAllPredefinedFields: true,
+            onStateApplied: () => this.onAfterStateApplied()
+        });
+    }
+
+    public selectedCountry: string | null = null;
+
+    public countryList: Country[] = countryList;
+
+    @Calc(["itemTemplateCustom", "useCustomTemplate"], s => s.useCustomTemplate ? s.itemTemplateCustom : null)
+    public itemTemplate: any = null;
+
+    public useCustomTemplate: boolean = false;
 
     public isDestroyed: boolean = false;
 
-    constructor(private _cd: ChangeDetectorRef) {
-        super(new DropDownDemoState(), DropDownDemoState.ngInputs, DropDownDemoState.ngOutputs);
-    }
-
     @ViewChild("itemTemplateCustom", { static: true })
-    public itemTemplateCustom: any;
-    
-    public ngOnChanges(changes: SimpleChanges): void {
-        super.ngOnChanges(changes);
-    }
+    public itemTemplateCustom: any = null;
 
     public ngOnDestroy(): void {
         this.isDestroyed = true;
@@ -35,11 +39,7 @@ export class DropDownDemoComponent extends WithStateBase<DropDownDemoState> impl
         this._cd.detectChanges();
     }
 
-    public ngAfterViewInit(): void {
-        this.modifyState("itemTemplateCustom", this.itemTemplateCustom);
-    }
-
-    public onAfterStateApplied?(previousState?: DropDownDemoState): void {
+    public onAfterStateApplied(): void {
         if (!this.isDestroyed) {
             this._cd.detectChanges();
         }

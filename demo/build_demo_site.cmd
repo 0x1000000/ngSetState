@@ -1,1 +1,0 @@
-"%~dp0ng" build --prod --output-path "%~dp0..\docs" --base-href ngSetState --aot

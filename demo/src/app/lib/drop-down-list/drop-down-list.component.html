@@ -1,0 +1,51 @@
+<drop-down
+  [(isOpen)]="isOpen" 
+  [inputTemplate]="inputTemplate" 
+  [dropContentTemplate]="dropContentTemplate"
+  [openDisabled]="openDisabled"
+  [disabled]="disabled"
+  [isError]="isError"
+  (actualMaxDropHeightPxChange)="actualMaxDropHeightPx = $event">
+</drop-down>
+<ng-template #inputTemplate>
+  <ng-container *ngIf="!itemTemplate">{{text}}</ng-container>
+  <ng-container *ngIf="itemTemplate">
+    <ng-container *ngTemplateOutlet="itemTemplate;context:inputTemplateContext"></ng-container>
+  </ng-container>
+</ng-template>
+<ng-template #dropContentTemplate>
+  <select-list
+    *ngIf="!multi"
+    [style.max-height.px]="actualMaxDropHeightPx"
+    [(selected)]="selected"
+    (selectedItemChange)="selectedItem = $event"
+    [items]="items"
+    [idMember]="idMember"
+    [textMember]="textMember"
+    [noneText]="noneText"
+    [showNullSelection]="showNullSelection"
+    (close)="toggle()"
+    [itemTemplate]="itemTemplate">
+  </select-list>
+  <multi-select-list
+    *ngIf="multi"
+    [style.max-height.px]="actualMaxDropHeightPx"
+    [(selected)]="selected"
+    (selectedItemChange)="selectedItem = $event"
+    [items]="items"
+    [idMember]="idMember"
+    [textMember]="textMember">
+  </multi-select-list>
+</ng-template>
+<style>
+  :host {
+    display: inline-block;
+    width: 200px;
+    outline: 0;
+  }  
+  
+  drop-down{
+    width: 100%;
+    display: inline;
+  }
+</style>

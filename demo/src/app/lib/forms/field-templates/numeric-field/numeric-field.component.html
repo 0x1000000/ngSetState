@@ -1,0 +1,42 @@
+<input
+  *ngIf="fieldData"
+  [class.error]="fieldData.isVisibleError" 
+  [attr.disabled]="fieldData.disabled?true:undefined" 
+  [value]="getText()" 
+  (input)="onTextChange($event.target)"
+  (blur)="onBlur()"/>
+<style>
+input{
+  display: inline-block;
+  padding: .375rem .75rem;
+  width: 250px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  background-color: var(--t-color);
+  color: var(--t-color-opposite);
+  background-clip: padding-box;
+  box-sizing:border-box;
+  border: 1px solid var(--t-border-color);
+  border-radius: .25rem;
+  transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+input:focus {
+  border-color: var(--t-border-color);
+  outline: 0;
+  box-shadow: var(--t-secondary-select-box-shadow);
+}
+
+input.error {
+  border-color: var(--t-error-color);
+}
+
+input:disabled{
+  background-color: var(--t-disabled-color);
+  color: var(--t-disabled-color-opposite);
+}
+
+input.error:focus{
+  box-shadow: var(--t-error-box-shadow);
+}
+</style>

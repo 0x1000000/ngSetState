@@ -1,29 +1,24 @@
 import { Component, ChangeDetectionStrategy, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
-import { ComponentState, ComponentStateDiff, IncludeInState, IStateHandler, StateTracking, With } from 'ng-set-state';
+import { ComponentState, ComponentStateDiff, IncludeInState, initializeStateTracking, IStateHandler, StateTracking, With } from 'ng-set-state';
 import { StateStorageService } from "../StateStorageService";
 
 type State = ComponentState<CalculatorDemoComponent>;
 type NewState = ComponentStateDiff<CalculatorDemoComponent>;
-
 
 @Component({
     selector: 'calculator-demo',
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: "./calculator-demo.component.html",
 })
-@StateTracking<CalculatorDemoComponent>({
-
-    onStateApplied: (c, s, p)=> c.onAfterStateApplied(s, p),
-    getInitialState: (c) => c.getInitialState(),
-    setHandler: (c, h)=> c.setHandler(h)
-})
 export class CalculatorDemoComponent {
 
     private static readonly stateStorageKey = "calculatorDemo";
 
-    private _handler: IStateHandler<State>;
-
     constructor(private readonly _stateStorage: StateStorageService, private readonly _cd: ChangeDetectorRef) {
+        initializeStateTracking<CalculatorDemoComponent>(this, {
+            initialState: this.getInitialState(),
+            onStateApplied: (state, previousState) => this.onAfterStateApplied(state, previousState)
+        });
     }
 
     public getInitialState(): State|null{
@@ -35,13 +30,6 @@ export class CalculatorDemoComponent {
         this._stateStorage.setState(CalculatorDemoComponent.stateStorageKey, state);
     }
 
-    public setHandler(handler: IStateHandler<State>): void {
-        this._handler = handler;        
-    }
-
-    public ngOnInit(){
-    }
-
     @IncludeInState()
     public arg1: number | null = 0;
 
@@ -51,15 +39,15 @@ export class CalculatorDemoComponent {
     @IncludeInState()
     public operation: "add" | "sub" = "add";
 
-    public result1: number = 0;
+    public result1: number | null = 0;
 
-    public result2: number = 0;
+    public result2: number | null = 0;
 
     public isCalculating: boolean = false;
 
-    public result1Deb: number;
+    public result1Deb: number | null = 0;
 
-    public result2Deb: number;
+    public result2Deb: number | null = 0;
 
     @With("result1", "result2")
     public static switchToLoading(state: State): NewState{
@@ -68,7 +56,7 @@ export class CalculatorDemoComponent {
         }
     }
 
-    @With("result1", "result2").Debounce(5000)
+    @With("result1", "result2").Debounce(1000)
     public static delayResult(state: State): NewState{
 
         return{

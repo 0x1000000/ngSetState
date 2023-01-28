@@ -6,33 +6,24 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AppComponent } from './app.component';
 import { CalculatorDemoComponent } from "./calculator/calculator-demo.component";
 import { CalculatorComponent } from "./calculator/calculator.component";
-import { TodoListComponent } from "./todoList/todoList.component";
-import { TodoItemComponent } from "./todoList/todoItem.component";
-import { TodoNewItemComponent } from "./todoList/todoNewItem.component";
-import { ControlsModule } from "./controls/controls.module";
 import { StateStorageService } from "./StateStorageService";
-import { TodoService } from "./todoList/TodoService";
 import { DropDownDemoComponent } from "./controlsDemo/drop-down-demo.component";
-import { CheckboxComponent } from "./controls/checkbox.component";
+import { LibModule } from './lib/lib.module';
 
 @NgModule({
     declarations: [
         AppComponent,
         CalculatorComponent,
         CalculatorDemoComponent,
-        TodoListComponent,
-        TodoItemComponent,
-        TodoNewItemComponent,
-        DropDownDemoComponent,
-        CheckboxComponent
+        DropDownDemoComponent
     ],
     imports: [
         BrowserModule,
         FormsModule,
-        ControlsModule,
+        LibModule,
         BrowserAnimationsModule
     ],
-    providers: [StateStorageService, TodoService],
+    providers: [StateStorageService],
     bootstrap: [AppComponent]
 })
 export class AppModule {

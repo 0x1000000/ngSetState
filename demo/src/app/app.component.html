@@ -1,13 +1,13 @@
-<tabs [selectedId]="state.selectedTab" (selectedIdChange)="modifyState('selectedTab', $event)">
-    <tab-pane title="Intro" id="intro">
+<tabs [selectedId]="selectedTab" (selectedIdChange)="selectedTab = $event">
+    <tab-pane label="Intro" id="intro">
         <p>Ng-Set-State it is a library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.</p>
         <ul>
             <li><a href="https://itnext.io/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3">Angular Components with Extracted Immutable State</a> - an article on Medium that explains the ideas of this library.</li>
             <li><a href="https://github.com/0x1000000/ngSetState/blob/master/README.md"></a>Documentation</li>
         </ul>
     </tab-pane>
-    <tab-pane title="Calculator" id="calculator">
-        <div class="main-content" *ngIf="state.selectedTab == 'calculator'">
+    <tab-pane label="Calculator" id="calculator">
+        <div class="main-content" *ngIf="selectedTab == 'calculator'">
             <calculator-demo></calculator-demo>
         </div>
         <p><a href="https://github.com/0x1000000/ngSetState/blob/master/demo/src/app/calculator/calculator.state.ts">Source Code</a></p>
@@ -16,15 +16,7 @@
             <img src="https://miro.medium.com/max/1400/1*RIDkhjTnN3NTyPWFC5ZfTQ.png" style="width: 700px;" />
         </div>
     </tab-pane>
-    <tab-pane title="ToDo List" id="todoList">
-        <p>Save request takes 3 seconds and sometimes it fails (this behavior is simulated). However, you can edit “TODO” items in real time – all changes will be queued and will be performed when previous operations are done. If you leave the tab when some saving operation is running the list will be destroyed, but operation will be continued, and state will be updated. It can lead to a component blocking to prevent states conflict.</p>
-        <p>Also, the list waits for a 2 second period of "silence" when there are no any changes and only then it starts saving the changed data.</p>
-        <div class="main-content">
-            <todo-list></todo-list>
-        </div>
-        <p><a href="https://github.com/0x1000000/ngSetState/blob/master/demo/src/app/todoList/todoList.state.ts">Source Code</a></p>
-    </tab-pane>
-    <tab-pane title="Drop-Down" id="dropDown">
+    <tab-pane label="Drop-Down" id="dropDown">
         <div class="main-content">
             <drop-down-demo></drop-down-demo>
         </div>

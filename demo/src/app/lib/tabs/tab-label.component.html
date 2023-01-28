@@ -1,0 +1,58 @@
+<div class="l-root" [class.selected]="isSelected" [class.selected-preview]="isPreview">
+  <ng-container *ngIf="pane != null && pane.labelTemplateCtx != null">
+    <ng-container *ngTemplateOutlet="pane.labelTemplate; context: pane.labelTemplateCtx"></ng-container>
+  </ng-container>
+  <span *ngIf="!(pane?.labelTemplateCtx)" class="label-text">
+    {{label}}
+  </span>
+</div>
+<style>
+  .l-root{
+    display: inline-block;
+    text-align: center;
+    min-width: 50px;
+    height: 50px;
+    line-height: 40px;    
+    font-size: 1.2rem;
+    display: inline-block;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    border-radius: 0.25rem 0.25rem 0 0;
+    transition: background-color 0.4s ease-out;
+  }
+  
+  .l-root.selected {
+    cursor: initial;
+    background-color: var(--t-secondary-select-color);
+    color: var(--t-secondary-select-color-opposite);
+    transition: background-color 0.4s ease-out, border-bottom 0.35s step-end;
+    border-bottom: 2px solid var(--t-primary-select-color);
+  }
+
+  .l-root.selected *{
+    color: var(--t-secondary-select-color-opposite);
+  }
+
+  .l-root.selected-preview{
+    cursor: progress;
+    background-color: var(--t-secondary-select-color);
+    border-bottom: 2px solid var(--t-border-color-hover);
+    animation: blink-background 2s infinite;
+  }
+
+  @keyframes blink-background{
+    0% {background-color: initial }
+    50% {background-color: var(--t-secondary-select-color) }
+    100% {background-color: initial }
+  }
+
+  .l-root:hover:not(.selected){
+    background-color: var(--t-secondary-select-color-hover);
+    border-bottom: 2px solid var(--t-border-color-hover);
+    transition: 0.3s ease-in;
+  }
+
+  .label-text{
+    padding: 0 10px;    
+  }
+</style>

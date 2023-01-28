@@ -1,0 +1,16 @@
+<div *ngFor="let i of viewItems" class="radio-item">
+    <input type="radio" [attr.id]="i.id" [attr.name]="radioName" [value]="i.value" [checked]="i.checked"
+        (change)="onRadioChange(i)">
+    <label [attr.for]="i.id">{{i.title}}</label>
+</div>
+<style>
+    .radio-item {
+        white-space: nowrap;
+    }
+
+    .radio-item input {
+        display: initial;
+        width: initial;
+        height: initial;
+    }
+</style>

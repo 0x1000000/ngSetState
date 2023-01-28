@@ -1,0 +1,54 @@
+<div 
+  *sqPopupRect="isOpen;overlay: true" 
+  #dialog
+  class="l-modal-dialog" 
+  life-cycle
+  (onInit)="onDialogCreated(dialog)"
+  (onDestroy)="dialogPopupElement = null"
+>
+  <h2>{{title}}</h2>
+  <div class="l-dialog-content">
+    <ng-content></ng-content>
+  </div>
+  <div class="l-buttons">
+    <button 
+      *ngFor="let b of actualButtons" (click)="onButtonClick(b.id)"
+      class="btn" 
+      [class.btn-primary]="b.primary"
+      [class.btn-secondary]="!b.primary"
+    >
+      {{b.title}}
+    </button>
+  </div>
+</div>
+<style>
+  .l-modal-dialog{
+    padding: 10px;
+    border: 1px solid var(--t-border-color);
+    border-radius: 0.25rem;
+    background-color: var(--t-color);
+    box-shadow: var(--t-secondary-select-box-shadow);
+  }
+
+  .l-modal-dialog h2{
+    margin: 0;
+    margin-bottom: 10px;
+  }
+
+  .l-dialog-content{
+    overflow: auto;
+    max-height: calc(100vh - 150px);
+    padding: 5px;
+  }
+
+  .l-buttons{
+    text-align: center;
+  }
+
+  .l-buttons .btn{
+    margin: 0 10px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    min-width: 100px;
+  }
+</style>

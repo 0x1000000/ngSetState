@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter  } from '@angular/core';
-import { ComponentState, ComponentStateDiff, StateTracking, With } from "ng-set-state";
+import { ComponentState, ComponentStateDiff, initializeStateTracking, StateTracking, With } from "ng-set-state";
 
 export type Operation = "add" | "sub";
 
@@ -11,11 +11,14 @@ type NewState = ComponentStateDiff<CalculatorComponent>;
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: "./calculator.component.html",
 })
-@StateTracking()
 export class CalculatorComponent {
     private static readonly regExNum = new RegExp('^\\d{1,9}$');
 
-    public readonly operations: { id: Operation, title }[] = [{ id: "add", title: "Plus (+)" }, { id: "sub", title: "Minus (-)" }];
+    public readonly operations: { id: Operation, title: string }[] = [{ id: "add", title: "Plus (+)" }, { id: "sub", title: "Minus (-)" }];
+
+    constructor(){
+        initializeStateTracking(this);
+    }
 
     @Input("arg1")
     public arg1Ext: number | null = null;
@@ -43,9 +46,14 @@ export class CalculatorComponent {
     @Output()
     public readonly arg2Change = new EventEmitter<number | null>();
 
-    public result: number | null = null;    
+    public result: number | null = null;
+
     @Output("result") 
     public readonly resultChange = new EventEmitter<number | null>();
+
+    public onInput(prop: 'arg1Text'|'arg2Text', e: Event): void {
+        this[prop] = (e.target as HTMLInputElement).value;
+    }
 
     //Functions
 

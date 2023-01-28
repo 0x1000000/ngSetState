@@ -1,0 +1,117 @@
+<div class="l-box" [class.l-box-hidden]="isOpen" [class.l-box-focus-frame]="focused" (click)="toggle()"  [class.l-disabled]="disabled" [class.l-error]="isError">
+    <ng-container *ngTemplateOutlet="inputTemplate;"></ng-container>
+    <svg class="l-drop-down-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M128 192l128 128 128-128z" /></svg>
+</div>
+<div
+    *sqPopupRect="isOpen;left:popupRect.left;top:popupRect.top;bottom:popupRect.bottom;width:popupRect.width;inOverlay:popupRect.inOverlay" 
+    #popup 
+    class="l-popover"
+    [class.l-box-focus-frame]="focused"
+    [class.l-popover-up]="isUpDirection"
+    [class.l-disabled]="disabled" 
+    [class.l-error]="isError"     
+    life-cycle 
+    (onInit)="popupElement=popup" 
+    (onDestroy)="popupElement = null"
+    (keydown)="onKeyDown($event)"
+    >
+    <div class="l-box" (click)="toggle()" *ngIf="!isUpDirection">
+        <ng-container *ngTemplateOutlet="inputTemplate;"></ng-container>
+        <svg class="l-drop-down-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M128 192l128 128 128-128z" /></svg>
+    </div>
+    <div     
+        class="l-popover-content"
+        [class.l-popover-content-opened]="isOpen"
+        [style.max-height.px]="actualMaxDropHeightPx">
+
+        <ng-container *ngTemplateOutlet="dropContentTemplate;">
+
+        </ng-container>
+    </div>
+    <div class="l-box" (click)="toggle()" *ngIf="isUpDirection">
+        <ng-container *ngTemplateOutlet="inputTemplate;"></ng-container>
+        <svg class="l-drop-down-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M128 192l128 128 128-128z" /></svg>
+    </div>
+</div>
+<style>
+    :host {
+        display: inline-block;
+        width: 200px;
+        outline: 0;
+    }
+
+    * {
+     box-sizing: border-box;
+    }
+
+    .l-box {
+        position: relative;
+        width: 100%;
+        min-width: 100%;
+        border: 1px solid var(--t-border-color);
+        border-radius: 0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: .375rem;
+        padding-right: 15px;
+        font-size: 1rem;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .l-drop-down-icon {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        height: 20px;
+        width: 20px;
+        margin-top: -10px;
+    }
+
+    .l-box-hidden {
+        visibility: hidden;
+    }
+
+    .l-popover {
+        border: 1px solid var(--t-border-color);
+        border-radius: 0.25rem;
+        background-color: var(--t-color);
+        overflow: hidden;
+    }
+
+        .l-popover .l-drop-down-icon {
+            transform: rotate(180deg);
+        }
+
+        .l-popover > .l-box {
+            border: 0;
+        }
+
+    .l-popover-content {
+        border-top: 1px solid var(--t-border-color);
+        overflow-y: auto;
+    }
+    .l-popover-up .l-popover-content{
+        border-top: 0;
+        border-bottom: 1px solid var(--t-border-color);
+    }
+
+    .l-popover-content-opened {
+        overflow-y: auto;
+    }
+
+    .l-box-focus-frame {
+        border-radius: 0.25rem;
+        box-shadow: var(--t-secondary-select-box-shadow);
+    }
+
+    .l-disabled{
+        background-color: var(--t-disabled-color);
+        color: var(--t-disabled-color-opposite);
+    }
+
+    .l-error{
+        border-color: var(--t-error-color);
+    }
+</style>

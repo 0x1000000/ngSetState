@@ -1,0 +1,54 @@
+<ng-container *ngIf="fieldTemplate && formField">
+  <label [class.l-disabled]="actualDisabled" [class.l-error]="isVisibleError">
+    {{formField.descriptor.label}}
+    <span *ngIf="formField.mandatory" class="l-mandatory-star">*</span>
+    <span *ngIf="isDirty" class="l-dirty-sign">&#x270e;</span>
+  </label>
+  <div>
+    <ng-container *ngIf="fieldContext" [ngTemplateOutlet]="fieldTemplate" [ngTemplateOutletContext]="fieldContext"></ng-container>
+    <button 
+    *ngFor="let tailButton of formField.tailButtons" 
+    class="btn btn-action" 
+    [attr.title]="tailButton.title" 
+    [attr.disabled]="tailButton.disabled ? true:undefined" 
+    (click)="onTailButtonClick(tailButton)">
+      <svg *ngIf="tailButton.iconId" class="icon">
+        <use [attr.xlink:href]="'#' + tailButton.iconId"></use>
+      </svg>
+    </button>
+  </div>
+  <div class="l-note">
+    &nbsp;{{formField.descriptor.note}}
+  </div>
+</ng-container>
+<style>
+  label{
+    display: inline-block;
+    margin-bottom: 5px;
+  }
+
+  .l-disabled{
+    color: var(--t-disabled-color-opposite);
+  }
+
+  .l-error{
+    color: var(--t-error-color);
+  }
+
+  .l-mandatory-star {
+    color: var(--t-error-color);
+  }
+
+  .l-dirty-sign{
+    font-family: auto;
+    color: var(--t-color-opposite);
+    font-size: 0.9rem;
+  }
+
+  .l-note{
+    font-size: 0.8rem;
+    font-style: italic;
+    width: 250px;
+  }
+    
+</style>

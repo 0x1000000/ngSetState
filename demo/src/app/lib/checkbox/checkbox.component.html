@@ -1,0 +1,112 @@
+<span
+    class="l-box"
+    [class.l-boxRound]="round"
+    [class.l-box-checked]="boxChecked"
+    [class.l-box-checked-round]="checked && round"
+    [class.l-disabled]="disabled">
+</span>
+<div class="l-label"><ng-content></ng-content></div>
+<style>
+    :host {
+        display: inline-block;
+        line-height: 1rem;
+        user-select: none;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        outline: 0;
+        cursor: pointer;
+    }
+
+    :host.disabled{
+        cursor: initial;
+    }
+    
+    .l-box {
+        position: relative;
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        min-width: 14px;
+        min-height: 14px;
+        vertical-align: middle;
+        margin-right: 5px;
+    }
+
+    :host:focus:not(.disabled) .l-box {
+        box-shadow: var(--t-secondary-select-box-shadow);
+    }
+
+    .l-box::before {
+        background-color: transparent;
+        border: 1px solid var(--t-border-color);
+        border-radius: 2px;
+        content: '';
+        height: 14px;
+        position: absolute;
+        width: 14px;
+    }
+
+    .l-boxRound::before {
+        border-radius: 50%;
+    }
+
+    .l-box-checked::before {
+        background-color: var(--t-primary-select-color);
+        border-color: var(--t-primary-select-color);
+    }
+
+    .l-box-checked::after {
+        -webkit-transform: scaleX(-1) rotate(135deg);
+        -moz-transform: scaleX(-1) rotate(135deg);
+        -o-transform: scaleX(-1) rotate(135deg);
+        -ms-transform: scaleX(-1) rotate(135deg);
+        transform: scaleX(-1) rotate(135deg);
+        border-color: #fff #fff #fff transparent;
+        border-style: solid;
+        border-width: 2px 2px 0 0;
+        content: '';
+        height: 10px;
+        position: absolute;
+        width: 4px;
+        left: 5px;
+        margin-top: 0;
+        top: 1px;
+    }
+
+    .l-box-checked-round::before {
+        background-color: var(--t-primary-select-color);
+        border: 1px solid var(--t-primary-select-color);
+    }
+
+    .l-box-checked-round::after {
+        background-color: #fff;
+        border: 2px solid #fff;
+        content: '';
+        height: 4px;
+        left: 4px;
+        position: absolute;
+        top: 4px;
+        width: 4px;
+        border-radius: 50%;
+    }
+
+    .l-disabled::before {
+        border-color: var(--t-disabled-color-opposite);
+    }
+
+    .l-box-checked.l-disabled::before {
+        background-color: var(--t-disabled-color-opposite);
+    }
+
+    .l-label {
+        display: inline-block;
+        margin-left: 5px;
+        vertical-align: middle;
+    }
+
+    :host.disabled .l-label{
+        color: var(--t-disabled-color-opposite);
+    }
+
+</style>

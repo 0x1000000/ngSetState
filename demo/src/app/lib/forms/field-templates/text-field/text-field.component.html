@@ -1,0 +1,8 @@
+<input
+  *ngIf="fieldData"
+  [class.error]="fieldData.isVisibleError" 
+  [attr.disabled]="fieldData.disabled?true:undefined" 
+  [attr.maxlength]="getMaxLength()"
+  [value]="getText()" 
+  (input)="onTextChange($event.target)"
+  (blur)="onBlur()"/>

@@ -1,0 +1,15 @@
+<checkbox *ngFor="let i of viewItems" [checked]="i.selected" (checkedChange)="onCheckedChange(i, $event)">
+  {{i.text}}
+</checkbox>
+<style>
+    checkbox{
+      display: block;
+      padding: 5px;
+      padding-bottom: 10px;
+    }
+
+    checkbox:hover {
+      background-color: var(--t-secondary-select-color);
+      color: var(--t-secondary-select-color-opposite);
+    }
+</style>
