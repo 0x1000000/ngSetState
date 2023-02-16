@@ -1,4 +1,4 @@
-﻿import { WithStateBase, WithAsync, AsyncInit} from "../src/index";
+﻿import { WithAsync, AsyncInit, WithStateBase, ComponentStateDiff, IncludeInState} from "../src/index";
 import { } from "jasmine";
 import { PromiseList, delayMs } from './helpers';
 
@@ -11,7 +11,7 @@ describe('Asynchronous tests: OnConcurrentLaunch...', () => {
         const p2 = promiseList.add();
         const p3 = promiseList.add();
 
-        const component = new TestOnConcurrentLaunchComponent(() => promiseList.next());
+        const component: TestOnConcurrentLaunchComponent = TestOnConcurrentLaunchComponent.create(() => promiseList.next());
         component.setMeta(behaviour);
 
         component.modifyState("arg", 1);
@@ -377,37 +377,46 @@ describe('If,Finally', () => {
     });
 });
 
-
 class TestOnConcurrentLaunchComponent extends WithStateBase<TestOnConcurrentLaunchState> {
-    constructor(operation: () => Promise<any>) {
-        super(new TestOnConcurrentLaunchState(operation), null, null);
+
+    static create(operation: () => Promise<any>){
+        return new TestOnConcurrentLaunchComponent(new TestOnConcurrentLaunchState(operation));
+    }
+
+    constructor(private readonly _c: TestOnConcurrentLaunchState) {
+        super(_c);
     }
 
     public getResult() { return this.state.result };
 
     public setMeta(behaviour: string) {
-        this.state.constructor["__state_meta__"].modifiers[0].fun[0].asyncData.behaviourOnConcurrentLaunch = behaviour;
+        this._c.constructor["__state_meta__"].modifiers[0].fun[0].asyncData.behaviourOnConcurrentLaunch = behaviour;
     }
 }
 
 class TestOnConcurrentLaunchState {
 
-    public readonly arg: number = 0;
+    public readonly arg: number = 0;    
     public readonly result: number = 0;
 
-    constructor(private readonly _operation: () => Promise<any>) { }
+    @IncludeInState()
+    public readonly operation: any;
+
+    constructor(operation: () => Promise<any>) { 
+        this.operation = operation;
+    }
 
     @WithAsync("arg").OnConcurrentLaunchPutAfter()
     public static async calcResult(getCurrentSate: () => TestOnConcurrentLaunchState): Promise<Partial<TestOnConcurrentLaunchState>> {
         const state = getCurrentSate();
-        await state._operation();
+        await state.operation();
         return { result: state.result + state.arg };
     }
 }
 
 class TestOnErrorComponent extends WithStateBase<TestOnErrorState> {
     constructor(operation: () => Promise<any>) {
-        super(new TestOnErrorState(operation), null, null);
+        super(new TestOnErrorState(operation));
     }
 
     public getResult() { return this.state.result };
@@ -459,7 +468,7 @@ class TestOnErrorState {
 
 class TestAsyncInitComponent extends WithStateBase<TestAsyncInitState> {
     constructor() {
-        super(new TestAsyncInitState(), null, null);
+        super(new TestAsyncInitState());
     }
 
     public getResult() { return this.state.result };
@@ -479,7 +488,7 @@ class TestAsyncInitState {
 
 class TestLocksComponent extends WithStateBase<TestLocksState> {
     constructor(operation: () => Promise<any>) {
-        super(new TestLocksState(operation), null, null);
+        super(new TestLocksState(operation));
     }
 
     public getResult() { return this.state.result };
@@ -535,7 +544,7 @@ class TestLocksState {
 
 class TestLocksAsyncInitComponent extends WithStateBase<TestLocksAsyncInitState> {
     constructor(operation: () => Promise<any>) {
-        super(new TestLocksAsyncInitState(operation), null, null);
+        super(new TestLocksAsyncInitState(operation));
     }
 
     public getResult() { return this.state.result };
@@ -569,7 +578,7 @@ class TestLocksAsyncInitState {
 class TestIfFinallyComponent extends WithStateBase<TestIfFinally> {
 
     constructor() {
-        super(new TestIfFinally(), null, null);
+        super(new TestIfFinally());
     }
 
 }

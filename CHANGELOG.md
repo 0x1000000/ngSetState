@@ -1,3 +1,7 @@
+## 3.0.0
+* **BREAKING CHANGE** dependency on angular was removed as well as In, Out decorators. That approach does not work anymore in the modern versions of angular since they actively utilize own version of typescript to prepare components is design time instead of adding metadata in runtime (which is controversial).
+* support of observables and subjects
+
 ## 2.0.1
 * **BUG FIX**: Properties bound to a shared state now takes initial value from a bounded property.
 * **BUG FIX**: Call of **onStateApplied** is extracted out of a cascade of state modifications (if **onStateApplied** leads to new modifications).

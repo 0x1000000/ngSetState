@@ -1,13 +1,23 @@
-import { Constructor } from './common';
+import { Constructor, EventEmitterLike, ObservableLike, SubjectLike } from './common';
 import { Functions } from '../impl/functions';
 import { StateTrackerContext } from "../impl/state_tracking_context";
-import { EventEmitter } from '@angular/core';
 
-type PropOnlKey<T> = { [K in keyof T]: T[K] extends (Function | EventEmitter<any>) ? never : K }[keyof T];
-type PropOnly<T> = Pick<T, PropOnlKey<T>>;
+type PropOnlyKey<T> = { [K in keyof T]: T[K] extends (Function|IStateHandler<any>) ? never : K }[keyof T];
+type PropOnly<T> = Pick<T, PropOnlyKey<T>>;
 
-export type ComponentState<T> = Readonly<PropOnly<T>>;
-export type ComponentStateDiff<T> = Partial<PropOnly<T>> | null;
+type NoPureObservableProp<T> = { [K in keyof T]:T[K] extends (Function|IStateHandler<any>) 
+                                                ? never : 
+                                                (T[K] extends ObservableLike<unknown> 
+                                                    ? (T[K] extends (SubjectLike<unknown> | EventEmitterLike<unknown>)
+                                                        ? K
+                                                        : never) 
+                                                    : K) }[keyof T];
+type NoPureObservables<T> = Pick<T, NoPureObservableProp<T>>;
+
+type UnwrapObservables<T> = { [K in keyof T]: T[K] extends ObservableLike<infer OT> ? (OT | undefined) : T[K] }
+
+export type ComponentState<T> = Readonly<UnwrapObservables<PropOnly<T>>>;
+export type ComponentStateDiff<T> = Partial<UnwrapObservables<NoPureObservables<T>>> | null;
 
 export type StateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
@@ -42,7 +52,7 @@ export interface ISharedStateChangeSubscription {
     unsubscribe();
 }
 
-export function initializeStateTracking<TComponent>(component: TComponent, options?: InitStateTrackingOptions<TComponent>): IStateHandler<TComponent> {
+export function initializeStateTracking<TComponent extends Object>(component: TComponent, options?: InitStateTrackingOptions<TComponent>): IStateHandler<TComponent> {
 
     const target = (<any>component)?.constructor;
 
@@ -65,21 +75,20 @@ export function initializeStateTracking<TComponent>(component: TComponent, optio
         };
     }
 
-    const tracker = new StateTrackerContext<TComponent>(component, stateMeta, contextOptions);
-    return {
-        getState: () => tracker.getState(),
-        modifyStateDiff: (d) => tracker.modifyStateDiff(d),
-        subscribeSharedStateChange: () => tracker.subscribeSharedStateChange(),
-        whenAll: () => tracker.whenAll(),
-        release: () => tracker.release()
-    };
+    new StateTrackerContext<TComponent>(component, stateMeta, contextOptions);
+
+    const handler = StateTrackerContext.tryGetStateHandler(component);
+    if (handler == null) {
+        throw new Error('Could not find state handler')
+    }    
+    return handler;
 }
 
 export function releaseStateTracking(component: any) {
     StateTrackerContext.releaseComponent(component);
 }
 
-export function StateTracking<TComponent>(options?: StateTrackingOptions<TComponent>)
+export function StateTracking<TComponent extends Object>(options?: StateTrackingOptions<TComponent>)
     : (t: Constructor<TComponent>) => any
 {
     return (target: Constructor<any>) => {

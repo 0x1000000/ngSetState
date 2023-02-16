@@ -1,14 +1,19 @@
 import { Constructor, AsyncContext } from './../../api/common';
+import { ComponentState, ComponentStateDiff } from './../../api/state_tracking';
 import { Functions } from './../../impl/functions';
 import { delayMs, cmpByPropsAll } from "./../../impl/utils";
 import { AsyncData, Modifier } from './../../impl/domain';
 
-export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<TState> {
+type S<T> = ComponentState<T>;
+type SD<T> = ComponentStateDiff<T>;
+
+export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAndAllOptions<TComponent> {
 
     const parameters: any = {};
 
-    const result: IWithAndAllOptions<TState> =
-        <any>((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const result: IWithAndAllOptions<TComponent> =
+        <any>((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
+
 
             if (parameters.debounceMs && parameters.debounceMs > 0) {
 
@@ -25,7 +30,7 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
                 return Functions.addModifier(
                     target,
                     propertyKey,
-                    { value: buildDebounceModifierFun<TState>(propNames, parameters.debounceMs, stateMeta.emitters, descriptor.value) },
+                    { value: buildDebounceModifierFun<TComponent>(propNames, parameters.debounceMs, stateMeta.emitters, descriptor.value) },
                     propNames,
                     asyncData);
             } else {
@@ -33,8 +38,8 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
             }
         });
 
-    const extra: IWithTimeFunctions<TState> = {
-        Debounce(debounceMs: number): IWithAndAllOptions<TState> {
+    const extra: IWithTimeFunctions<TComponent> = {
+        Debounce(debounceMs: number): IWithAndAllOptions<TComponent> {
             if(debounceMs == null || debounceMs <= 0){
                 throw new Error("Debounce time should be greater than zero");
             }            
@@ -48,27 +53,26 @@ export function With<TState>(...propNames: (keyof TState)[]):IWithAndAllOptions<
     return result;
 }
 
-export interface IWith<TState> {
-    (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor);
+export interface IWith<TComponent> {
+    (target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor);
 }
 
-export type IWithAllOptions<TState> = IWithTimeFunctions<TState>;
+export type IWithAllOptions<TComponent> = IWithTimeFunctions<TComponent>;
 
-export type IWithAndAllOptions<TState> = IWith<TState> & IWithAllOptions<TState>;
+export type IWithAndAllOptions<TComponent> = IWith<TComponent> & IWithAllOptions<TComponent>;
 
-export interface IWithTimeFunctions<TState> {
-    Debounce(timeMs: number): IWithAndAllOptions<TState>;
+export interface IWithTimeFunctions<TComponent> {
+    Debounce(timeMs: number): IWithAndAllOptions<TComponent>;
 }
 
+function buildDebounceModifierFun<TComponent>(propNames: (keyof S<TComponent>)[], debounceMs: number, emitters: (keyof S<TComponent>)[], fun: Modifier<TComponent>) {
 
-function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, emitters: (keyof TState)[], fun: Modifier<TState>) {
-
-    async function debounceModifierFun(getState: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
+    async function debounceModifierFun(asyncContext: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<SD<TComponent> | null> {
 
         await delayMs(debounceMs);
 
-        if (!getState.isCancelled()) {
-            const currentState = getState();
+        if (!asyncContext.isCancelled()) {
+            const currentState = asyncContext();
 
             const runAlways = emitters.length > 0 && propNames.some(p => emitters.indexOf(p) >= 0);
 

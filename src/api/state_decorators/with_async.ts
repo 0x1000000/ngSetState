@@ -1,10 +1,14 @@
 import { Constructor, AsyncContext } from './../../api/common';
+import { ComponentState, ComponentStateDiff } from './../../api/state_tracking';
 import { AsyncData, AsyncModifier, ConComponent } from './../../impl/domain';
 import { Functions } from './../../impl/functions';
 import { delayMs, cmpByPropsAll } from "../../impl/utils";
 import { AsyncState } from "../../impl/async_state";
 
-export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAndAllOptions<TState>{
+type S<T> = ComponentState<T>;
+type SD<T> = ComponentStateDiff<T>;
+
+export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAsyncAndAllOptions<TComponent>{
 
     const asyncData: AsyncData = {
         locks: [],
@@ -16,8 +20,8 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
 
     let debounceMs: number | null = null;
 
-    const result: IWithAsyncAndAllOptions<TState> = <any>
-    ((target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor) => {
+    const result: IWithAsyncAndAllOptions<TComponent> = <any>
+    ((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
 
         if (debounceMs != null) {
 
@@ -34,7 +38,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             return Functions.addModifier(
                 target,
                 propertyKey,
-                { value: buildDebounceModifierFun<TState>(propNames, debounceMs, stateMeta.emitters, descriptor.value, asyncData) },
+                { value: buildDebounceModifierFun<TComponent>(propNames, debounceMs, stateMeta.emitters, descriptor.value, asyncData) },
                 propNames,
                 debounceAsyncData);
 
@@ -58,7 +62,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
     const checkLocks = () => checkGeneric("locks", "Locks");
     const checkOnError = () => checkGeneric("onError", "OnError...");
 
-    const optional: IWithAsyncAllOptions<TState> = {
+    const optional: IWithAsyncAllOptions<TComponent> = {
         OnConcurrentLaunchCancel: () => {
             checkOnConcurrent();
             asyncData.behaviourOnConcurrentLaunch = "cancel";
@@ -94,7 +98,7 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             asyncData.behaviourOnError = "forget";
             return result;
         },
-        OnErrorCall: (method: (currentState: TState, error: any) => Partial<TState> | null) => {
+        OnErrorCall: (method: (currenTComponent: TComponent, error: any) => Partial<TComponent> | null) => {
             checkOnError();
             asyncData.behaviourOnError = { callMethod: method };
             return result;
@@ -110,12 +114,12 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
             debounceMs = inDebounceMs;
             return result;
         },
-        If: (predicate: (currentState: TState) => boolean) => {
+        If: (predicate: (currenTComponent: TComponent) => boolean) => {
             checkGeneric("if", "If");
             asyncData.predicate = predicate;
             return result;
         },
-        Finally: (method: () => Partial<TState> | null) => {
+        Finally: (method: () => Partial<TComponent> | null) => {
             checkGeneric("finally", "Finally");
             asyncData.finalizer = method;
             return result;
@@ -129,50 +133,50 @@ export function WithAsync<TState>(...propNames: (keyof TState)[]): IWithAsyncAnd
 
 type Checks = { onConcurrent: boolean, locks: boolean, onError: boolean, if: boolean, finally: boolean };
 
-export type IWithAsyncAllOptions<TState> = IWithAsyncOnConcurrentLaunch<TState> & IWithAsyncLocks<TState> & IWithAsyncOnError<TState> & IWithAsyncTimeFunctions<TState> & IWithAsyncPrePostFunctions<TState>;
+export type IWithAsyncAllOptions<TComponent> = IWithAsyncOnConcurrentLaunch<TComponent> & IWithAsyncLocks<TComponent> & IWithAsyncOnError<TComponent> & IWithAsyncTimeFunctions<TComponent> & IWithAsyncPrePostFunctions<TComponent>;
 
-export type IWithAsyncAndAllOptions<TState> = IWithAsync<TState> & IWithAsyncAllOptions<TState>;
+export type IWithAsyncAndAllOptions<TComponent> = IWithAsync<TComponent> & IWithAsyncAllOptions<TComponent>;
 
-export interface IWithAsyncOnConcurrentLaunch<TState> {
-    OnConcurrentLaunchCancel(): IWithAsyncAndAllOptions<TState>;
-    OnConcurrentLaunchPutAfter(): IWithAsyncAndAllOptions<TState>;
-    OnConcurrentLaunchReplace(): IWithAsyncAndAllOptions<TState>;
-    OnConcurrentLaunchConcurrent(): IWithAsyncAndAllOptions<TState>;
+export interface IWithAsyncOnConcurrentLaunch<TComponent> {
+    OnConcurrentLaunchCancel(): IWithAsyncAndAllOptions<TComponent>;
+    OnConcurrentLaunchPutAfter(): IWithAsyncAndAllOptions<TComponent>;
+    OnConcurrentLaunchReplace(): IWithAsyncAndAllOptions<TComponent>;
+    OnConcurrentLaunchConcurrent(): IWithAsyncAndAllOptions<TComponent>;
 }
 
-export interface IWithAsyncLocks<TState> {
-    Locks(...lockIds: string[]): IWithAsyncAndAllOptions<TState>;
+export interface IWithAsyncLocks<TComponent> {
+    Locks(...lockIds: string[]): IWithAsyncAndAllOptions<TComponent>;
 }
 
-export interface IWithAsyncOnError<TState> {
-    OnErrorThrow(): IWithAsyncAndAllOptions<TState>;
-    OnErrorForget(): IWithAsyncAndAllOptions<TState>;
-    OnErrorCall(method: (currentState: TState, error: any)=> Partial<TState>|null): IWithAsyncAndAllOptions<TState>;
+export interface IWithAsyncOnError<TComponent> {
+    OnErrorThrow(): IWithAsyncAndAllOptions<TComponent>;
+    OnErrorForget(): IWithAsyncAndAllOptions<TComponent>;
+    OnErrorCall(method: (currenTComponent: TComponent, error: any)=> Partial<TComponent>|null): IWithAsyncAndAllOptions<TComponent>;
 }
 
-export interface IWithAsyncTimeFunctions<TState> {
-    Debounce(timeMs: number): IWithAsyncAndAllOptions<TState>;
+export interface IWithAsyncTimeFunctions<TComponent> {
+    Debounce(timeMs: number): IWithAsyncAndAllOptions<TComponent>;
 }
 
-export interface IWithAsyncPrePostFunctions<TState> {
-    If(predicate: (currentState: TState) => boolean): IWithAsyncAndAllOptions<TState>;
-    Finally(method: () => Partial<TState> | null): IWithAsyncAndAllOptions<TState>;
-}
-
-
-export interface IWithAsync<TState> {
-    (target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor);
+export interface IWithAsyncPrePostFunctions<TComponent> {
+    If(predicate: (currenTComponent: TComponent) => boolean): IWithAsyncAndAllOptions<TComponent>;
+    Finally(method: () => Partial<TComponent> | null): IWithAsyncAndAllOptions<TComponent>;
 }
 
 
-function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceMs: number, emitters: (keyof TState)[], fun: AsyncModifier<TState>, asyncData: AsyncData) {
+export interface IWithAsync<TComponent> {
+    (target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor);
+}
 
-    async function debounceModifierFun(getState: AsyncContext<TState> & ConComponent<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState> | null> {
+
+function buildDebounceModifierFun<TComponent>(propNames: (keyof S<TComponent>)[], debounceMs: number, emitters: (keyof S<TComponent>)[], fun: AsyncModifier<TComponent>, asyncData: AsyncData) {
+
+    async function debounceModifierFun(asyncContext: AsyncContext<TComponent> & ConComponent<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<SD<TComponent> | null> {
 
         await delayMs(debounceMs);
 
-        if (!getState.isCancelled()) {
-            const currentState = getState();
+        if (!asyncContext.isCancelled()) {
+            const currentState = asyncContext();
 
             const runAlways = emitters.length > 0 && propNames.some(p => emitters.indexOf(p) >= 0);
 
@@ -180,7 +184,7 @@ function buildDebounceModifierFun<TState>(propNames: (keyof TState)[], debounceM
 
                 fun.asyncData = asyncData;
 
-                AsyncState.pushModifiers<any>(getState.getComponent(), [fun], originalState, diff);
+                AsyncState.pushModifiers<any>(asyncContext.getComponent(), [fun], originalState, diff);
             }
         }
         return null;

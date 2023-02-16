@@ -1,7 +1,6 @@
 ﻿import { Emitter, With,Calc, StateTracking, ComponentState, ComponentStateDiff, OutputFor, IncludeInState, IStateHandler, initializeStateTracking, ISharedStateChangeSubscription, BindToShared } from "../src/index";
-import { } from "jasmine";
-import { delayMs } from './helpers';
-import { EventEmitter } from '@angular/core';
+import {  } from "jasmine";
+import { delayMs, EventEmitter } from './helpers';
 import { WithAsync } from "../src/api/state_decorators/with_async";
 import { releaseStateTracking } from "../src/api/state_tracking";
 
@@ -63,7 +62,7 @@ describe('State Tracking...', () => {
                 h.modifyStateDiff({ arg1: 0 });
             }
 
-            @OutputFor<TestComponent>("resultAsync")
+            @OutputFor("resultAsync")
             public readonly resultAsyncSomeName = new EventEmitter<number>();
 
             @With("arg1", "arg2")
@@ -569,10 +568,10 @@ describe('State Tracking...', () => {
 
         class C {
 
-            public readonly handler: IStateHandler<ComponentState<C>>;
+            public readonly handler: IStateHandler<C>;
 
             constructor(allPreDefined: boolean) {
-                this.handler = initializeStateTracking(this,
+                this.handler = initializeStateTracking<C>(this,
                     {
                         includeAllPredefinedFields: allPreDefined,
                         immediateEvaluation: true,

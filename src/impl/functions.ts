@@ -1,153 +1,21 @@
-import { EventEmitter, SimpleChanges } from "@angular/core";
-import { IWithState } from './../api/i_with_state';
 import { Constructor, Constructor as IConstructor } from './../api/common';
-import { AsyncState } from './async_state';
-import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData, PropMeta} from './domain';
+import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData} from './domain';
 import { checkPromise, cmpByProp } from './utils';
+import { ComponentState, ComponentStateDiff, initializeStateTracking, InitStateTrackingOptions } from './../api/state_tracking';
+import { IWithState } from './../api/i_with_state';
 
 export class Functions {
-    
-    public static initialize<TState>(component: IWithState<TState>, state: TState, ngInputs: string[] | null, ngOutputs: string[] | null) {
-
-        if (component.state != null) {
-            throw new Error("component should not have any initial state at this point");
-        }
-        if (state == null) {
-            throw new Error("initial state should be defined");
-        }
-
-        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(state);
-
-        //CheckInputs
-
-        if (ngInputs != null) {
-            const inputCmp = Functions.compareArrays(stateMeta.inputs.map(i => i.componentProp), ngInputs);
-
-            if (inputCmp.missedInArr1.length > 0) {
-                throw new Error("Could not find the following inputs in the state class: " + inputCmp.missedInArr1.join(","));
-            }
-            if (inputCmp.missedInArr2.length > 0) {
-                throw new Error("Could not find the following inputs in the component annotation: " + inputCmp.missedInArr2.join(","));
-            }
-        }
-
-        if (ngOutputs != null) {
-            const outCmp = Functions.compareArrays(stateMeta.outputs.map(i => i.componentProp), ngOutputs);
-
-            if (outCmp.missedInArr1.length > 0) {
-                throw new Error("Could not find the following outputs in the state class: " + outCmp.missedInArr1.join(","));
-            }
-            if (outCmp.missedInArr2.length > 0) {
-                throw new Error("Could not find the following outputs in the component annotation: " + outCmp.missedInArr2.join(","));
-            }
-        }
-
-        //Create component emitters
-        for (const outputProp of stateMeta.outputs) {
-            const emitterProp = outputProp.componentProp;
-
-            if (component[emitterProp] == null) {
-                component[emitterProp] = new EventEmitter<any>();
-            }
-        }
-
-        //Set initial values for input component properties
-        for (const inputProp of stateMeta.inputs) {
-            component[inputProp.componentProp] = state[inputProp.stateProp];
-        }
-
-
-        //Push async init
-        if (stateMeta.asyncInit != null) {
-            const init = stateMeta.asyncInit;
-            setTimeout(() => AsyncState.pushModifiers(component, [init], component.state, {}));
-        }        
-    }
-
-    public static ngOnChanges<TState>(component: IWithState<TState>, changes: SimpleChanges): void {
-
-        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
-
-        let diff: Partial<TState> | null = null;
-        for (const prop of stateMeta.inputs) {
-
-            const change = changes[prop.componentProp];
-
-            if (change && (change.currentValue !== component.state[prop.stateProp] || isEmittrer(prop))) {
-                if (!diff) {
-                    diff = {};
-                }
-                diff[prop.stateProp] = change.currentValue;
-            }
-        }
-
-        if (diff) {
-            Functions.nextState(component, diff);
-        }
-
-        function isEmittrer(p: PropMeta<TState>) {
-            return stateMeta.emitters.indexOf(p.stateProp) >= 0;
-        }
-    }
-
-    public static modifyState<TState, TK extends keyof TState>(component: IWithState<TState>, propName: TK, value: TState[TK]): boolean {
-        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
-
-        if (component.state[propName] !== value || (stateMeta.emitters.length > 0 && stateMeta.emitters.indexOf(propName)>=0)) {
-            const diff: Partial<TState> = {};
-            diff[propName] = value;
-            return Functions.nextState(component, diff);
-        }
-        return false;
-    }
-
-    public static nextState<TState>(component: IWithState<TState>, diff: Partial<TState> | null): boolean {
-        if (diff == null) {
-            return false;
-        }
-
-        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta(component.state);
-
-        const previousState = component.state;
-
-        const { newState, asyncModifiers, emitterProps } = Functions.updateCycle(stateMeta, previousState, diff, false);
-
-        component.state = newState;
-
-        let result = false;
-        for (const output of stateMeta.outputs) {
-
-            const emitOutput = !cmpByProp(previousState, component.state, output.stateProp) ||
-                (emitterProps != null && emitterProps.indexOf(output.stateProp) >= 0);
-
-            if (emitOutput) {
-                Functions.emit(component, output, component.state[output.stateProp]);
-            }
-        }
-        if (component.state !== previousState) {
-            if (component.onAfterStateApplied) {
-                component.onAfterStateApplied(previousState);
-            }
-            result = true;
-        }
-
-        if (asyncModifiers && asyncModifiers.length > 0) {
-            AsyncState.pushModifiers(component, asyncModifiers, previousState, diff);
-        }
-
-        return result;
-    }
-
-    public static addModifier<TState>(target: Constructor<TState>, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof TState)[], asyncData: AsyncData | null) {
+  
+    public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null) {
         const stateMeta = Functions.ensureStateMeta(target);
-        let modifier: Modifier<TState> | AsyncModifier<TState> = descriptor.value;
+        let modifier: Modifier<TComponent> | AsyncModifier<TComponent> = descriptor.value;
     
         if (asyncData) {
             const original = modifier;
             modifier = function (...args: any[]) {
                 return original.apply(this, args);
             };
-            (<AsyncModifier<TState>><any>modifier).asyncData = asyncData;
+            (<AsyncModifier<TComponent>><any>modifier).asyncData = asyncData;
         }
     
         for (const propName of propNames) {
@@ -169,8 +37,8 @@ export class Functions {
         }
     }    
 
-    public static updateCycle<TState>(stateMeta: StateMeta<TState>, previousState: TState, diff: Partial<TState>, freeze: boolean)
-        : { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitterProps: (keyof TState)[] | null }
+    public static updateCycle<TComponent>(stateMeta: StateMeta<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, freeze: boolean)
+        : { newState: ComponentState<TComponent>, asyncModifiers: AsyncModifier<TComponent>[] | null, emitterProps: (keyof ComponentState<TComponent>)[] | null }
     {
         if (diff == null) {
             return { newState: previousState, asyncModifiers: null, emitterProps: null }
@@ -184,24 +52,24 @@ export class Functions {
         return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff, freeze);
     }
 
-    private static applyModifiersCycle<TState>(stateMeta: StateMeta<TState>, currentState: TState, previousState: TState, diff: Partial<TState>, freeze: boolean)
-        : { newState: TState, asyncModifiers: AsyncModifier<TState>[] | null, emitterProps: (keyof TState)[] }
+    private static applyModifiersCycle<TComponent>(stateMeta: StateMeta<TComponent>, currentState: ComponentState<TComponent>, previousState: ComponentState<TComponent>, diff: NonNullable<ComponentStateDiff<TComponent>>, freeze: boolean)
+        : { newState: ComponentState<TComponent>, asyncModifiers: AsyncModifier<TComponent>[] | null, emitterProps: (keyof ComponentState<TComponent>)[] | null }
     {
         let watchDog = 1000;
-        let diffKeys = Object.keys(diff) as (keyof TState)[];
+        let diffKeys = Object.keys(diff) as (keyof ComponentStateDiff<TComponent>)[];
         const originalDiffKeys = diffKeys;
-        let modifiers: (Modifier<TState> | AsyncModifier<TState>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
+        let modifiers: (Modifier<TComponent> | AsyncModifier<TComponent>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
-        let asyncModifiers: AsyncModifier<TState>[] | null = null;
+        let asyncModifiers: AsyncModifier<TComponent>[] | null = null;
 
-        const emitterProps: (keyof TState)[] = [];
+        const emitterProps: (keyof ComponentState<TComponent>)[] = [];
         addEmitters(diffKeys);
 
         while (watchDog > 0) {
             if (modifiers.length < 1) {
                 return { newState: currentState, asyncModifiers: asyncModifiers, emitterProps};
             }
-            const modifiersAcc: Modifier<TState>[] = [];
+            const modifiersAcc: Modifier<TComponent>[] = [];
             for (const modifier of modifiers) {
                 if (isAsyncModifier(modifier)) {
                     if (!asyncModifiers) {
@@ -217,10 +85,10 @@ export class Functions {
                 }
                 if (diff != null) {
 
-                    diffKeys = Object.keys(diff) as (keyof TState)[];
+                    diffKeys = Object.keys(diff) as (keyof ComponentStateDiff<TComponent>)[];
                     addEmitters(diffKeys);
 
-                    const hasChanges: boolean = diffKeys.some(dk => !cmpByProp(previousState, diff as TState, dk))
+                    const hasChanges: boolean = diffKeys.some(dk => !cmpByProp(previousState, diff, dk))
                         || Functions.diffHasEmitter(diffKeys, null, stateMeta)
                         //It allows modifiers to rollback the change 
                         || (diffKeys !== originalDiffKeys && diffKeys.some(dk => originalDiffKeys.indexOf(dk)>=0));
@@ -238,7 +106,7 @@ export class Functions {
         throw new Error("Recursion overflow");
 
 
-        function addEmitters(keys: (keyof TState)[]) {
+        function addEmitters(keys: (keyof ComponentState<TComponent>)[]) {
             if (stateMeta.emitters.length > 0) {
                 for (const e of stateMeta.emitters) {
                     if (emitterProps.indexOf(e) >= 0) {
@@ -253,8 +121,8 @@ export class Functions {
         }
     }
 
-    private static findModifiers<TState>(stateMeta: StateMeta<TState>, newState: TState, previousState: TState, diffKeys: (keyof TState)[], modifiersAcc: Modifier<TState>[] | null): (Modifier<TState> | AsyncModifier<TState>)[] {
-        const acc: (Modifier<TState> | AsyncModifier<TState>)[] = modifiersAcc == null ? [] : modifiersAcc;
+    private static findModifiers<TComponent>(stateMeta: StateMeta<TComponent>, newState: ComponentState<TComponent>, previousState: ComponentState<TComponent>, diffKeys: (keyof ComponentState<TComponent>)[], modifiersAcc: Modifier<TComponent>[] | null): (Modifier<TComponent> | AsyncModifier<TComponent>)[] {
+        const acc: (Modifier<TComponent> | AsyncModifier<TComponent>)[] = modifiersAcc == null ? [] : modifiersAcc;
 
         for (const modifier of stateMeta.modifiers) {
             /*Even if the key is in diff it does not mean that the property is actually changed*/
@@ -279,25 +147,7 @@ export class Functions {
         return stateMeta.emitters.length > 0 && stateMeta.emitters.some(eKey => diffKeys.indexOf(eKey)>=0);
     }
 
-    private static emit<TState>(component: IWithState<TState>, prop: PropMeta<TState>, value: any): void {
-        const emitter = Functions.checkEmitter(component, prop.componentProp);
-
-        if (!emitter) {
-            throw new Error(`Could not find any emitter for "${prop}"`);
-        }
-
-        emitter.emit(value);
-    }
-
-    private static checkEmitter<TState>(component: IWithState<TState>, name: string): EventEmitter<any> | null {
-        const emitter = component[name];
-        if (emitter && typeof emitter.emit === "function") {
-            return emitter;
-        }
-        return null;
-    }
-
-    public static ensureStateMeta<TState extends Object>(obj: TState | IConstructor<TState>): StateMeta<TState> {
+    public static ensureStateMeta<TComponent>(obj: TComponent | IConstructor<TComponent>): StateMeta<TComponent> {
         if (obj == null) {
             throw new Error("State host should be initialized");
         }
@@ -308,8 +158,7 @@ export class Functions {
             return cons[STATE_META];
         }
 
-        const stateMeta: StateMeta<TState> = {
-            stateConstructor: null,
+        const stateMeta: StateMeta<TComponent> = {
             inputs: [],
             outputs: [],
             emitters: [],
@@ -325,7 +174,42 @@ export class Functions {
         return stateMeta;
     }
 
-    private static cloneStateObject<TState>(previousState: TState, diff: Partial<TState>, stateMeta: StateMeta<TState>, freeze: boolean): TState {
+    public static makeWithState<TComponent extends Object>(target: Partial<IWithState<TComponent>>, component: TComponent, options?: Omit<InitStateTrackingOptions<TComponent>, 'onStateApplied'>) {
+        const localOptions: InitStateTrackingOptions<TComponent> = Object.assign({}, options);
+
+        if(localOptions.immediateEvaluation == null) {
+            localOptions.immediateEvaluation = true;
+        }
+        if(localOptions.includeAllPredefinedFields == null) {
+            localOptions.includeAllPredefinedFields = true;
+        }
+
+        localOptions.onStateApplied = stateChangeCallback;
+
+        const handler = initializeStateTracking(component, localOptions);
+        Object.defineProperty(target, 'state', {
+            get: () => handler.getState()
+        });        
+        target.modifyStateDiff = (d) => handler.modifyStateDiff(d);
+        target.subscribeSharedStateChange = () => handler.subscribeSharedStateChange();
+        target.whenAll = () => handler.whenAll();
+        target.release = () => handler.release();
+
+        target.modifyState = (propName, value) =>
+        {
+            let diff: ComponentStateDiff<TComponent> = {};
+            diff[propName] = value;
+            return handler.modifyStateDiff(diff);    
+        };
+
+        function stateChangeCallback(s: ComponentState<TComponent>, p: ComponentState<TComponent>) {
+            if(target.onAfterStateApplied != null) {
+                target.onAfterStateApplied(p);
+            }
+        }
+    }
+
+    private static cloneStateObject<TComponent>(previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, stateMeta: StateMeta<TComponent>, freeze: boolean): ComponentState<TComponent> {
 
         //Check changes
         if (diff == null) {
@@ -338,15 +222,9 @@ export class Functions {
         if (diffProperties.every(dp => cmpByProp(previousState, diff, dp as any))) {
             return previousState;
         }
-        let result: TState;
-        if (stateMeta.stateConstructor) {
-            const newInstance = Object.create(stateMeta.stateConstructor.prototype);
-            Object.assign(newInstance, previousState, diff);
-            result = newInstance;
-        }
-        else {
-            result = Object.assign({}, previousState, diff);
-        }
+        let result: ComponentState<TComponent>;
+
+        result = Object.assign({}, previousState, diff);
 
         if (freeze) {
             Object.freeze(result);

@@ -8,7 +8,7 @@ describe('Time tests: Debounce...', () => {
 
         let counter = 0;
 
-        const component = new TestDebounceComponent(0,0, ()=>counter++);
+        const component = new TestDebounceComponent(0, 0, ()=>counter++);
 
         component.modifyState("arg", 1);
 
@@ -16,11 +16,11 @@ describe('Time tests: Debounce...', () => {
 
         for (let i = 1; i <= 5; i++) {
             component.modifyState("arg", i);
-            await delayMs(100);
+            await delayMs(1);
             expect(component.state.result).toBe(0);
         }
 
-        await delayMs(300);
+        await component.whenAll();
 
         expect(component.state.result).toBe(5);
         expect(component.state.resultAsync).toBe(5);
@@ -85,7 +85,11 @@ class TestDebounceState {
 
     public readonly resultAsync: number;
 
-    constructor(public readonly arg: number, public readonly result: number, private readonly _callback: () => void) {
+    constructor (
+        public readonly arg: number, 
+        public readonly result: number, 
+        private readonly _callback: () => void
+    ) {
         this.resultAsync = result;
     }
 
@@ -99,14 +103,14 @@ class TestDebounceState {
     public static async calcResultAsync(context: AsyncContext<TestDebounceState>): Promise<Partial<TestDebounceState> | null>  {
         await delayMs(1);
         const state = context();
-        state._callback();
+        (context as any).getComponent()._component._callback();
         return { resultAsync: state.resultAsync + state.arg };
     }
 }
 
 class TestDebounceComponent extends WithStateBase<TestDebounceState> {
     constructor(arg: number, result: number, callback: () => void) {
-        super(new TestDebounceState(arg, result, callback), null, null);
+        super(new TestDebounceState(arg, result, callback));
     }
 }
 
@@ -129,7 +133,7 @@ class TestAsyncDebounceState {
     public static async calcResultPutAfter(context: AsyncContext<TestAsyncDebounceState>): Promise<Partial<TestAsyncDebounceState> | null> {
         const state = context();
         await delayMs(100);
-        state._callback("putAfter");
+        (context as any).getComponent()._component._callback("putAfter");
         return { resultPutAfter: state.resultPutAfter + state.arg };
     }
 
@@ -137,11 +141,12 @@ class TestAsyncDebounceState {
     public static async calcResultReplace(context: AsyncContext<TestAsyncDebounceState>): Promise<Partial<TestAsyncDebounceState> | null> {
         const state = context();
         await delayMs(100);
-        state._callback("replaceCan");
+
+        (context as any).getComponent()._component._callback("replaceCan");
         if (context.isCancelled()) {
             return null;
         }
-        state._callback("replace");
+        (context as any).getComponent()._component._callback("replace");
         return { resultReplace: state.resultReplace + state.arg };
     }
 
@@ -149,17 +154,17 @@ class TestAsyncDebounceState {
     public static async calcResultCancel(context: AsyncContext<TestAsyncDebounceState>): Promise<Partial<TestAsyncDebounceState> | null> {
         const state = context();
         await delayMs(100);
-        state._callback("cancelCan");
+        (context as any).getComponent()._component._callback("cancelCan");
         if (context.isCancelled()) {
             return null;
         }
-        state._callback("cancel");
+        (context as any).getComponent()._component._callback("cancel");
         return { resultCancel: state.resultCancel + state.arg };
     }
 }
 
 class TestAsyncDebounceComponent extends WithStateBase<TestAsyncDebounceState> {
     constructor(arg: number, result: number, callback: (type: "putAfter" | "replaceCan" | "replace" | "cancelCan" | "cancel") => void) {
-        super(new TestAsyncDebounceState(arg, result, callback), null, null);
+        super(new TestAsyncDebounceState(arg, result, callback));
     }
 }

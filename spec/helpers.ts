@@ -1,4 +1,6 @@
-﻿export class PromiseCompletionSource {
+﻿import { EventEmitterLike, SubscriptionLike } from "../src/api/common";
+
+export class PromiseCompletionSource {
 
     private _promise: Promise<any> | null = null;
 
@@ -85,4 +87,19 @@ export class PromiseList {
 
 export function delayMs(durationMs: number): Promise<void> {
     return new Promise<void>((resolve) => setTimeout(() => resolve(), durationMs));
+}
+
+
+export class EventEmitter<T> implements EventEmitterLike<T> {
+    private observerOrNext: any;
+
+    emit(value?: T | undefined): void {
+        this.observerOrNext?.call(null, value);
+    }
+    subscribe(next?: ((value: T) => void) | undefined, error?: ((error: any) => void) | undefined, complete?: (() => void) | undefined): SubscriptionLike;
+    subscribe(observerOrNext?: any, error?: any, complete?: any): SubscriptionLike;
+    subscribe(observerOrNext?: unknown, error?: unknown, complete?: unknown): import("../src/api/common").SubscriptionLike {
+        this.observerOrNext = observerOrNext;
+        return null as any;
+    }
 }

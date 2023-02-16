@@ -1,12 +1,16 @@
+import { ComponentState, ComponentStateDiff } from './../../api/state_tracking';
 import { Modifier } from './../../impl/domain';
 import { Functions } from './../../impl/functions';
 
-export function Calc<TState, Prop extends keyof TState>(propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any {
-    return (target: TState, propertyKey: Prop) => {
+type S<T> = ComponentState<T>;
+type SD<T> = ComponentStateDiff<T>;
+
+export function Calc<TComponent, Prop extends keyof NonNullable<SD<TComponent>>>(propNames: (keyof S<TComponent>)[], func: (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>) => NonNullable<SD<TComponent>>[Prop]): any {
+    return (target: TComponent, propertyKey: Prop) => {
         const stateMeta = Functions.ensureStateMeta(target);
 
-        const modifier: Modifier<TState> = (currentSate: TState, previousSate: TState, diff: Partial<TState>) => {
-            const res: Partial<TState> = {};
+        const modifier: Modifier<TComponent> = (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>) => {
+            const res: SD<TComponent> = {};
             res[propertyKey] = func(currentSate, previousSate, diff);
             return res;
         };

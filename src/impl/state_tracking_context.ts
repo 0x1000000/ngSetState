@@ -1,13 +1,14 @@
-import { EventEmitter } from '@angular/core';
 import { Functions } from '../impl/functions';
 import { AsyncState } from '../impl/async_state';
 import { StateMeta } from './domain';
-import { IStateHolder } from '../api/i_with_state';
 import { EMITTER_SUFFIX } from './domain';
-import { cmpByProp, cmp } from './utils';
+import { cmpByProp, cmp, checkIsEventEmitterLike, checkIsObservableLike, checkIsSubjectLike } from './utils';
 import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler } from '../api/state_tracking';
+import { EventEmitterLike, SubscriptionLike, SubjectLike, ObservableLike } from './../api/common';
+import { IStateHolder } from './../api/i_with_state';
 
 type PropertyKey = keyof any;
+
 type SharedPropMap = { [componentProp: string]: [Object, keyof any] };
 
 interface IStateTrackerSubscriber {
@@ -19,6 +20,7 @@ interface IStateTrackerRef {
     releaseTracker(subscriber: IStateTrackerSubscriber);
     getState(): Object;
     release: () => void;
+    getHandler: () => IStateHandler<any>;
 }
 
 class StateTrackerEventQueue {
@@ -56,7 +58,7 @@ class StateTrackerEventQueue {
     }
 }
 
-export class StateTrackerContext<TComponent> implements IStateHolder<ComponentState<TComponent>> {
+export class StateTrackerContext<TComponent extends Object> implements IStateHolder<TComponent> {
     public state: ComponentState<TComponent>;
 
     private static readonly contextRefPropertyId: symbol = Symbol();
@@ -65,9 +67,9 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private _callbackIsScheduled: boolean = false;
 
-    private _changesBuffer: Partial<ComponentState<TComponent>> | null;
+    private _changesBuffer: ComponentStateDiff<TComponent> | null;
 
-    private readonly _emittersDict: { [k: string]: EventEmitter<any> } = {};
+    private readonly _emittersDict: { [k: string]: EventEmitterLike<any> | SubjectLike<any> } = {};
 
     private readonly _stateMeta: StateMeta<any>;
 
@@ -83,6 +85,8 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private _subscription: ISharedStateChangeSubscription | null = null;
 
+    public _observableSubscriptions: SubscriptionLike[] | null = null; 
+
     public static releaseComponent<TComponent>(component: TComponent) {
         const ref: IStateTrackerRef = component[StateTrackerContext.contextRefPropertyId];
         if (!ref) {
@@ -91,11 +95,23 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         ref.release();
     }
 
+    public static tryGetStateHandler<TComponent>(component: TComponent): IStateHandler<TComponent> | undefined {
+        const trackerRef: IStateTrackerRef = component[StateTrackerContext.contextRefPropertyId];
+
+        if(trackerRef != null && typeof trackerRef.getHandler === 'function') {
+            return trackerRef.getHandler();
+        }
+        return undefined;
+    }
+
     constructor(component: TComponent, stateMeta: StateMeta<any>, options: StateTrackingOptions<TComponent> | null |undefined) {
 
         if (component[StateTrackerContext.contextRefPropertyId]) {
             throw new Error("This component has already been initialized with a state tracker");
         }
+
+        const handler: IStateHandler<TComponent> = buildHandler(this);       
+        Object.freeze(handler);
 
         //This Object will be added to the component property as a ref
         const ref: IStateTrackerRef = {
@@ -108,7 +124,8 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                 this._subscribers.splice(sIndex, 1);
             },
             getState: () => this.state,
-            release: () => this.release()
+            release: () => this.release(),
+            getHandler: () => handler
         };
 
         component[StateTrackerContext.contextRefPropertyId] = ref;
@@ -122,21 +139,22 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
         //adds to state all props mentioned as modifier dependencies
         const props = this._stateMeta.modifiers.map(m => m.prop);
+        
         // adds explicitly defined properties
         props.push(...this._stateMeta.explicitStateProps.filter(e => props.indexOf(e) < 0));
 
-        //finds EventEmitters
+        //finds EventEmitters, Subjects and predefined props
         for (const key of Object.keys(this._component)) {
             const value = component[key];
             if (value !== undefined) {               
                 if (externalState != null && externalState === value) {
                     continue;
                 }
-                if (value instanceof EventEmitter) {
+                if (checkIsEventEmitterLike(value) || checkIsSubjectLike<any>(value)) {
                     if (stateMeta.emitterMaps[key]) {
-                        const eKey = stateMeta.emitterMaps[key] as string;
-                        if (!this._emittersDict[eKey]) {
-                            this._emittersDict[eKey] = value;
+                        const refKey = stateMeta.emitterMaps[key] as string;
+                        if (!this._emittersDict[refKey]) {
+                            this._emittersDict[refKey] = value;
                         }
                     } else if (key.endsWith(EMITTER_SUFFIX)) {
                         const eKey = key.substr(0, key.length - EMITTER_SUFFIX.length);
@@ -144,6 +162,8 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                         if (!this._emittersDict[eKey]) {
                             this._emittersDict[eKey] = value;
                         }
+                    } else if (!this._emittersDict[key]) {
+                        this._emittersDict[key] = value;
                     }
                 }
                 else if (this._options.includeAllPredefinedFields && props.indexOf(key) < 0) {
@@ -164,18 +184,42 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         }
 
         //Replacing with getters and setters
+        let observables: [(string|number|symbol),ObservableLike<any>][] | undefined;
         for (const e of props) {
-            this.replaceMember(e, externalState == null);
+            const fieldValue = component[e];
+            if(checkIsObservableLike(fieldValue)) {
+                if(observables == null) {
+                    observables = [];
+                }
+                observables.push([e, fieldValue]);
+            } else {
+                this.replaceMember(e, externalState == null);
+            }            
         }
+
+        //Might be called immediately and modify state so it is at the end of constrictor (before binding to shared)
+        if(observables != null) {
+            if (this._observableSubscriptions == null) {
+                this._observableSubscriptions = [];
+            }
+            for(const [key,o] of observables) {
+                const subscription = o.subscribe(v => {
+                    const newState = {};
+                    newState[key] = v;
+                    this.modifyStateDiff(newState);
+                });
+                this._observableSubscriptions.push(subscription);                        
+            }
+        }       
 
         //Replacing with getters and setters with pointing to a shared state
         this._sharedState = this._options.getSharedStateTracker?.call(component, component);
         this._sharedStatePropMap = this.connectToSharedTrackers();
 
         //Constructing stateTrackerHandler
-        this._options.setHandler?.call(component, component, buildHandler(this));
+        this._options.setHandler?.call(component, component, handler);
 
-        function buildHandler(context: StateTrackerContext<ComponentState<TComponent>>): IStateHandler<ComponentState<TComponent>> {
+        function buildHandler(context: StateTrackerContext<TComponent>): IStateHandler<TComponent> {
             return {
                 getState: () => context.getState(),
                 modifyStateDiff: (diff) => context.modifyStateDiff(diff),
@@ -185,7 +229,7 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             }
         }
 
-        //Push async init
+        //Push async init modifier
         if (stateMeta.asyncInit != null) {
             const init = stateMeta.asyncInit;
             setTimeout(() => AsyncState.pushModifiers(this, [init], this.state, {}));
@@ -230,31 +274,36 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
                     sharedPropsWatchDog.add(sharedBindingProp);
                 }
 
-                if (sharedBindingProp != null && this.checkIsSetter(sharedTracker, sharedBindingProp)) {
+                if (sharedBindingProp != null) {
 
-                    sharedPropsWatchDog.delete(sharedBindingProp);
+                    const isSetter = this.checkIsSetter(sharedTracker, sharedBindingProp);
+                    const isObservable = checkIsObservableLike(sharedTracker[sharedBindingProp]);
 
-                    if (nameCollisionWatchDog?.has(bindingProp)) {
-                        throw new Error(`Field name collision detected in shared state tarackes ("${bindingProp}"  to "${sharedBindingProp.toString()}"). You need to specify an index of a desired state tracker.`);
+                    if(isSetter || isObservable){
+                        sharedPropsWatchDog.delete(sharedBindingProp);
+
+                        if (nameCollisionWatchDog?.has(bindingProp)) {
+                            throw new Error(`Field name collision detected in shared state trackers ("${bindingProp}"  to "${sharedBindingProp.toString()}"). You need to specify an index of a desired state tracker.`);
+                        }
+                        nameCollisionWatchDog?.add(bindingProp);
+    
+                        sharedStatePropMap[bindingProp as any] = [sharedTracker, sharedBindingProp];
+    
+                        this.replaceSharedMember(bindingProp, sharedBindingProp, sharedTracker);    
                     }
-                    nameCollisionWatchDog?.add(bindingProp);
-
-                    sharedStatePropMap[bindingProp as any] = [sharedTracker, sharedBindingProp];
-
-                    this.replaceSharedMember(bindingProp, sharedBindingProp, sharedTracker);
                 }
             }
         }
 
         if (sharedPropsWatchDog.size > 0) {
             const fields = Array.from(sharedPropsWatchDog).join(",");
-            throw new Error(`Could not find "${fields}" field(s) in the shared state tarcker. Make sure it is included in to the state.`);
+            throw new Error(`Could not find "${fields}" field(s) in the shared state tracker. Make sure it is included in to the state.`);
         }
 
         return sharedStatePropMap;
     }
 
-    public modifyStateDiff(diff: Partial<ComponentState<TComponent>> | null): boolean {
+    public modifyStateDiff(diff: ComponentStateDiff<TComponent>): boolean {
         if (diff == null) {
             return false;
         }
@@ -270,10 +319,10 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             const result = this.state !== previousState;
 
             //Add missing getters and setters if a prop returned by a modifier
-            const newStateKeys = Object.keys(newState);
+            const newStateKeys = Object.keys(newState) as (keyof ComponentStateDiff<TComponent>)[];
             for (const p of newStateKeys) {
                 if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
-                    if (!(this._component[p] instanceof EventEmitter)) {
+                    if (!checkIsEventEmitterLike(this._component[p]) && !checkIsObservableLike(this._component[p])) {
                         this.replaceMember(p, false);
                     }
                 }
@@ -293,18 +342,26 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
             //Emit outputs
             if (result || alwaysEmittedProps != null) {
                 for (const emitterProp of Object.keys(this._emittersDict)) {
-
+                    const se = this._emittersDict[emitterProp];
                     let checkAlwaysEmittedProps = true;
                     if (result) {
                         if (!cmpByProp(newState, previousState, emitterProp)) {
-                            this._emittersDict[emitterProp].emit(newState[emitterProp]);
+                            if(checkIsSubjectLike(se)) {
+                                se.next(newState[emitterProp]);
+                            } else {
+                                se.emit(newState[emitterProp]);
+                            }                            
                             checkAlwaysEmittedProps = false;
                         }
                     }
 
                     if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
                         if (alwaysEmittedProps.indexOf(emitterProp) >= 0) {
-                            this._emittersDict[emitterProp].emit(newState[emitterProp]);
+                            if(checkIsSubjectLike(se)) {
+                                se.next(newState[emitterProp]);
+                            } else {
+                                se.emit(newState[emitterProp]);
+                            }                            
                         }
                     }
                 }
@@ -365,30 +422,66 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
 
     private replaceSharedMember(prop: PropertyKey, sharedProp: PropertyKey, sharedTracker: Object) {
 
+        if (checkIsObservableLike(this._component[prop])) {
+            throw new Error(`Property '${prop?.toString()}' cannot be observable since it is bound to a shared state`);
+        }
+
         const existingDescriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
-        //Copy value from shared tracker
-        this.state[prop] = sharedTracker[sharedProp];
+        const sharedValue = sharedTracker[sharedProp]
 
-        Object.defineProperty(this._component,
-            prop,
-            {
-                get: () => {
-                    return sharedTracker[sharedProp];
-                },
-                set: (val) => {
-                    if (existingDescriptor?.set) {
-                        //It is required to sync shared and local if there is no subscription.
-                        //for proper modifiers selection
-                        this.syncStateWithShared(sharedProp);
+        if (!checkIsObservableLike(sharedValue)) {
+            //Copy value from shared tracker
+            this.state[prop] = sharedValue;
 
-                        existingDescriptor.set.call(this, val);
-                    } else {//modifyStateDiff will update it
-                        sharedTracker[sharedProp] = val;
-                    }
-                },
-                enumerable: true
-            });
+            Object.defineProperty(this._component,
+                prop,
+                {
+                    get: () => {
+                        return sharedTracker[sharedProp];
+                    },
+                    set: (val) => {
+                        if (existingDescriptor?.set) {
+                            //It is required to sync shared and local if there is no subscription.
+                            //for proper modifiers selection
+                            this.syncStateWithShared(sharedProp);
+
+                            existingDescriptor.set.call(this, val);
+                        } else {//modifyStateDiff will update it
+                            sharedTracker[sharedProp] = val;
+                        }
+                    },
+                    enumerable: true
+                });            
+        } else {
+
+            if(checkIsSubjectLike(sharedValue)) {
+                Object.defineProperty(this._component,
+                    prop,
+                    {
+                        get: () => {
+                            return this.state[prop];
+                        },
+                        set: (val) => {
+                            sharedValue.next(val);
+                        },
+                        enumerable: true
+                    });    
+            } else {
+                Object.defineProperty(this._component,
+                    prop,
+                    {
+                        get: () => {
+                            return this.state[prop];
+                        },
+                        set: () => {
+                            throw new Error(`Value cannot be set for shared observable property '${sharedProp.toString()}' since it is not a subject`);
+                        },
+                        enumerable: true
+                    });    
+            }
+        }
+
     }
 
     private syncStateWithShared(sharedState: Object) {
@@ -479,6 +572,13 @@ export class StateTrackerContext<TComponent> implements IStateHolder<ComponentSt
         if (this._subscription != null) {
             this._subscription.unsubscribe();
             this._subscription = null;
+        }
+
+        if(this._observableSubscriptions != null) {
+            for(const s of this._observableSubscriptions){
+                s.unsubscribe();
+            }
+            this._observableSubscriptions = null;
         }
     }
 

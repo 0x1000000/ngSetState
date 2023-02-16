@@ -1,35 +1,24 @@
-import { SimpleChanges } from '@angular/core';
-import { IWithState } from './i_with_state';
-import { Constructor } from './common';
-import { AsyncState } from './../impl/async_state';
-import { StateMeta } from './../impl/domain';
 import { Functions } from './../impl/functions';
+import { IWithState } from './i_with_state';
+import { ComponentState, ComponentStateDiff, InitStateTrackingOptions, ISharedStateChangeSubscription } from './state_tracking';
 
-export abstract class WithStateBase<TState extends Object> implements IWithState<TState> {
+export abstract class WithStateBase<TComponent extends Object> implements IWithState<TComponent> {
 
-    constructor(initialState: TState, ngInputs: string[] | null, ngOutputs: string[] | null) {
-        const stateMeta: StateMeta<TState> = Functions.ensureStateMeta<TState>(initialState);
-        stateMeta.stateConstructor = <Constructor<TState>>initialState.constructor;
-        Functions.initialize(this, initialState, ngInputs, ngOutputs);
-
-        this.state = initialState;
+    constructor(component: TComponent, options?: Omit<InitStateTrackingOptions<TComponent>, 'onStateApplied'>) {
+        Functions.makeWithState<TComponent>(this, component, options);
     }
 
-    public state: TState;
+    readonly state: ComponentState<TComponent>;
 
-    public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): boolean {
-        return Functions.modifyState(this, propName, value);
-    }
+    readonly modifyStateDiff: (diff: ComponentStateDiff<TComponent>) => boolean;
 
-    public modifyStateDiff(diff: Partial<TState> | null): boolean {
-        return Functions.nextState(this, diff);
-    }
+    readonly modifyState: <TK extends keyof NonNullable<ComponentStateDiff<TComponent>>>(propName: TK, value: NonNullable<ComponentStateDiff<TComponent>>[TK]) => boolean;
 
-    public ngOnChanges(changes: SimpleChanges): void {
-        Functions.ngOnChanges(this, changes);
-    }    
+    onAfterStateApplied?(previousState?: ComponentState<TComponent>): void;
 
-    public whenAll(): Promise<any> {
-        return AsyncState.whenAll(this);
-    }
+    readonly subscribeSharedStateChange: () => ISharedStateChangeSubscription | null;
+
+    readonly whenAll: () => Promise<any>;
+
+    readonly release: () => void;
 }

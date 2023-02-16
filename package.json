@@ -6,7 +6,7 @@
   "es2015": "dist/index.es2015.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rimraf dist && rollup -c && rollup -c rollup.config.es2015.js && npm run cp_publish",
+    "build": "rimraf dist && rollup -c --bundleConfigAsCjs && rollup -c rollup.config.es2015.js --bundleConfigAsCjs && npm run cp_publish",
     "test": "jasmine-ts --config=./jasmine.json --project spec/tsconfig.json",
     "build_for_demo": "npm run build && npm run cp_publish_to_demo",
     "cp_publish": "rimraf tmp_publish && cpx \"./dist/**/*.*\" tmp_publish/dist && cpx \"./{package.json,LICENSE,CHANGELOG.md,README_NPM.md}\" tmp_publish  && node -e \"require('fs').rename('tmp_publish/README_NPM.md', 'tmp_publish/README.md', function(err) { if (err) console.log(err); })\"",
@@ -27,23 +27,18 @@
     "url": "https://github.com/0x1000000/ngSetState/issues"
   },
   "homepage": "https://github.com/0x1000000/ngSetState#readme",
-  "optionalDependencies": {
-    "@angular/core": ">=4.0.0"
-  },
-  "devDependencies": {
-    "@angular/core": "^9.0.7",
+  "dependencies": {
     "@types/jasmine": "^3.5.0",
-    "core-js": "^2.5.4",
+    "core-js": "^3.27.2",
     "cpx": "^1.5.0",
-    "cxp": "^11.5.1",
     "jasmine": "^3.5.0",
     "jasmine-ts": "^0.3.0",
-    "nyc": "^14.0.0",
-    "rollup": "^1.32.1",
-    "rollup-plugin-license": "^2.3.0",
-    "rollup-plugin-typescript2": "^0.26.0",
-    "ts-node": "~8.3.0",
-    "tslib": "^2.0.0",
-    "typescript": "~3.7.5"
+    "nyc": "^15.1.0",
+    "rollup": "^3.11.0",
+    "rollup-plugin-license": "^3.0.1",
+    "rollup-plugin-typescript2": "^0.34.1",
+    "rxjs": "^7.8.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.4"
   }
 }

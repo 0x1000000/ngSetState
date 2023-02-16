@@ -1,14 +1,15 @@
+import { ComponentState, ComponentStateDiff } from './../api/state_tracking';
 import { RunningModifier, AsyncModifier } from './domain';
 
-export class RunningPool<TState> {
+export class RunningPool<TComponent> {
 
-    private readonly _storage: RunningModifier<TState>[] = [];
+    private readonly _storage: RunningModifier<TComponent>[] = [];
 
-    private readonly _lockQueue: AsyncModifier<TState>[] = [];
+    private readonly _lockQueue: AsyncModifier<TComponent>[] = [];
 
     private _counter: number = 0;
 
-    public nextOrCurrentId(modifier: AsyncModifier<TState>): [number, number|null] | null {
+    public nextOrCurrentId(modifier: AsyncModifier<TComponent>): [number, number|null] | null {
 
         const running = this.getByModifierId(modifier);
 
@@ -44,7 +45,7 @@ export class RunningPool<TState> {
         return [id, oldId];
     }
 
-    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TState>, oldId: number | null, previousState: TState, diff: Partial<TState>) {
+    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TComponent>, oldId: number | null, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>) {
 
         let originalState = previousState;
         let originalDiff = diff;
@@ -58,7 +59,7 @@ export class RunningPool<TState> {
                 throw new Error("Replaced modifier cannot have a pending one");
             }
         }
-        const newItem: RunningModifier<TState> = {
+        const newItem: RunningModifier<TComponent> = {
             id: id,
             modifier: modifier,
             promise: promise,
@@ -80,7 +81,7 @@ export class RunningPool<TState> {
         this._lockQueue.length = 0;
     }
 
-    public getById(id: number): RunningModifier<TState> {
+    public getById(id: number): RunningModifier<TComponent> {
         const oldItemIndex = this._storage.findIndex(i => i.id === id);
         if (oldItemIndex >= 0) {
             return  this._storage[oldItemIndex];
@@ -88,9 +89,9 @@ export class RunningPool<TState> {
         throw new Error("Could not find a running task by its id");
     }
 
-    public deleteByIdAndGetPendingModifier(id: number): AsyncModifier<TState> | null {
+    public deleteByIdAndGetPendingModifier(id: number): AsyncModifier<TComponent> | null {
 
-        let result: AsyncModifier<TState> | null = null;
+        let result: AsyncModifier<TComponent> | null = null;
 
         const index = this._storage.findIndex(i => i.id === id);
         if (index >= 0) {
@@ -109,12 +110,12 @@ export class RunningPool<TState> {
         return this._storage.map(i => i.promise);
     }
 
-    private getByModifierId(modifier: AsyncModifier<TState>): RunningModifier<TState> | null {
+    private getByModifierId(modifier: AsyncModifier<TComponent>): RunningModifier<TComponent> | null {
         const index = this._storage.findIndex(i => i.modifier === modifier);
         return index < 0 ? null : this._storage[index];
     }
 
-    private putIntoLockQueue(modifier: AsyncModifier<TState>): boolean {
+    private putIntoLockQueue(modifier: AsyncModifier<TComponent>): boolean {
         const targetLocks = modifier.asyncData.locks;
         if (targetLocks == null || targetLocks.length < 1) {
             return false;
@@ -131,7 +132,7 @@ export class RunningPool<TState> {
         return false;
     }
 
-    private extractFromLockQueue(): AsyncModifier<TState> | null {
+    private extractFromLockQueue(): AsyncModifier<TComponent> | null {
         if (this._lockQueue.length < 1) {
             return null;
         }
@@ -139,7 +140,7 @@ export class RunningPool<TState> {
         if (this._storage.length > 0) {
             index = this._lockQueue.findIndex(lq => !this._storage.some(s => RunningPool.locksIntersect(s.modifier, lq)));
         }
-        let res: AsyncModifier<TState> | null = null;
+        let res: AsyncModifier<TComponent> | null = null;
         if (index >= 0) {
             res = this._lockQueue[index];
             this._lockQueue.splice(index, 1);
@@ -147,7 +148,7 @@ export class RunningPool<TState> {
         return res;
     }
 
-    private static locksIntersect<TState>(x: AsyncModifier<TState>, y: AsyncModifier<TState>): boolean {
+    private static locksIntersect<TComponent>(x: AsyncModifier<TComponent>, y: AsyncModifier<TComponent>): boolean {
         const xL = x.asyncData.locks;
         const yL = y.asyncData.locks;
 

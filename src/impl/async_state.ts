@@ -1,17 +1,18 @@
 import { RunningPool } from "./running_pool";
 import { AsyncModifier, ASYNC_STATE, ConComponent } from './domain';
-import { IStateHolder } from './../api/i_with_state';
-import { checkPromise, delayMs } from './utils';
+import { checkPromise } from './utils';
 import { AsyncContext } from "../api/common";
+import { IStateHolder } from "./../api/i_with_state";
+import { ComponentState, ComponentStateDiff } from "./../api/state_tracking";
 
-export class AsyncState<TState> {
+export class AsyncState<TComponent> {
 
-    constructor(private readonly _component: IStateHolder<TState>) { }
+    constructor(private readonly _component: IStateHolder<TComponent>) { }
 
-    private readonly _pool = new RunningPool<TState>();
+    private readonly _pool = new RunningPool<TComponent>();
     
-    public static pushModifiers<TState>(component: IStateHolder<TState>, modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
-        const instance = AsyncState.ensureComponentAsyncState<TState>(component);
+    public static pushModifiers<TComponent>(component: IStateHolder<TComponent>, modifiers: AsyncModifier<TComponent>[], previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>) {
+        const instance = AsyncState.ensureComponentAsyncState<TComponent>(component);
         instance.pushModifiers(modifiers, previousState, diff);
     }
 
@@ -41,7 +42,7 @@ export class AsyncState<TState> {
         asyncState._pool.discardAll();
     }
 
-    private pushModifiers(modifiers: AsyncModifier<TState>[], previousState: TState, diff: Partial<TState>) {
+    private pushModifiers(modifiers: AsyncModifier<TComponent>[], previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>) {
         if (modifiers && modifiers.length > 0) {
             for (const mod of modifiers) {
                 if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
@@ -51,7 +52,7 @@ export class AsyncState<TState> {
         }
     }
 
-    private registerAndLaunchModifier(mod: AsyncModifier<TState>, previousState: TState, diff: Partial<TState>): void {
+    private registerAndLaunchModifier(mod: AsyncModifier<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>): void {
         const ids = this._pool.nextOrCurrentId(mod);
 
         if (ids == null) {
@@ -77,7 +78,7 @@ export class AsyncState<TState> {
                 if (!checkPromise(res)) {
                     throw new Error("Async modifier should return a promise");
                 }
-                let asyncDiff: Partial<TState> | null = null;
+                let asyncDiff: ComponentStateDiff<TComponent> = null;
 
                 try {
                     //Running async modifier
@@ -130,9 +131,9 @@ export class AsyncState<TState> {
         this._pool.addNewAndDeleteOld(id, promise, mod, oldId, originalState, originalDiff);
     }
 
-    private createAsyncContext(id: number): AsyncContext<TState> & ConComponent<TState> {
+    private createAsyncContext(id: number): AsyncContext<TComponent> & ConComponent<TComponent> {
 
-        const result = (() => this._component.state) as AsyncContext<TState> & ConComponent<TState>;
+        const result = (() => this._component.state) as AsyncContext<TComponent> & ConComponent<TComponent>;
 
         result.isCancelled = () => !this._pool.exists(id);
 
@@ -141,7 +142,7 @@ export class AsyncState<TState> {
         return result;
     }
 
-    private static ensureComponentAsyncState<TState>(component: IStateHolder<TState>): AsyncState<TState> {
+    private static ensureComponentAsyncState<TComponent>(component: IStateHolder<TComponent>): AsyncState<TComponent> {
         if (component == null) {
             throw new Error("Component should be initialized");
         }
@@ -150,7 +151,7 @@ export class AsyncState<TState> {
             return component[ASYNC_STATE];
         }
 
-        const asyncState: AsyncState<TState> = new AsyncState<TState>(component);
+        const asyncState: AsyncState<TComponent> = new AsyncState<TComponent>(component);
 
         component[ASYNC_STATE] = asyncState;
 

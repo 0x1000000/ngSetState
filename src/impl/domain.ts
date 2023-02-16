@@ -1,5 +1,6 @@
+import { IStateHolder } from './../api/i_with_state';
 import { Constructor, AsyncContext } from './../api/common';
-import { IStateHolder } from "../api/i_with_state";
+import { ComponentState, ComponentStateDiff } from './../api/state_tracking';
 
 export const STATE_META = "__state_meta__";
 
@@ -7,38 +8,39 @@ export const EMITTER_SUFFIX = "Change";
 
 export const ASYNC_STATE = "__async_state__";
 
-export interface PropMeta<TState> {
-    readonly stateProp: keyof TState,
+type S<T> = ComponentState<T>;
+type SD<T> = ComponentStateDiff<T>;
+
+export interface PropMeta<TComponent> {
+    readonly stateProp: keyof S<TComponent>,
     readonly componentProp: string,
 }
 
 export type SharedBindingRef = ((keyof any) | [(keyof any), number]);
 
-
-export interface StateMeta<TState> {
-    stateConstructor: Constructor<TState> | null;
-    inputs: PropMeta<TState>[];
-    outputs: PropMeta<TState>[];
-    emitters: (keyof TState)[];
-    emitterMaps: { [key: string]: keyof TState };
-    modifiers: { prop: (keyof TState), fun: (Modifier<TState> | AsyncModifier<TState>)[] }[];
-    explicitStateProps: (keyof TState)[];
+export interface StateMeta<TComponent> {
+    inputs: PropMeta<TComponent>[];
+    outputs: PropMeta<TComponent>[];
+    emitters: (keyof S<TComponent>)[];
+    emitterMaps: { [key: string]: keyof S<TComponent> };
+    modifiers: { prop: (keyof S<TComponent>), fun: (Modifier<TComponent> | AsyncModifier<TComponent>)[] }[];
+    explicitStateProps: (keyof S<TComponent>)[];
     sharedBindings: { [key: string]: SharedBindingRef };
-    asyncInit: AsyncModifier<TState> | null;
+    asyncInit: AsyncModifier<TComponent> | null;
 }
 
-export interface Modifier<TState> {
-    (currentSate: TState, previousSate: TState, diff: Partial<TState>): Partial<TState> | null;    
+export interface Modifier<TComponent> {
+    (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>): SD<TComponent>;
 }
 
-export interface AsyncModifier<TState> {
-    (currentSate: AsyncContext<TState>, originalState: TState, diff: Partial<TState>): Promise<Partial<TState>> | null;    
+export interface AsyncModifier<TComponent> {
+    (currentSate: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<SD<TComponent>> | null;    
 
     asyncData: AsyncData;
 }
 
-export interface ConComponent<TState> {
-    getComponent: () => IStateHolder<TState>;
+export interface ConComponent<TComponent> {
+    getComponent: () => IStateHolder<TComponent>;
 }
 
 export function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifier<TState>): modifier is AsyncModifier<TState> {
@@ -57,11 +59,11 @@ export type AsyncData =
     finalizer: (() => any) | null;
 }
 
-export type RunningModifier<TState> = {
+export type RunningModifier<TComponent> = {
     readonly id: number,
-    readonly modifier: AsyncModifier<TState>,
+    readonly modifier: AsyncModifier<TComponent>,
     readonly promise: Promise<void>;
-    readonly originalState: TState;
-    readonly originalDiff: Partial<TState>;
-    next: AsyncModifier<TState> | null;
+    readonly originalState: S<TComponent>;
+    readonly originalDiff: SD<TComponent>;
+    next: AsyncModifier<TComponent> | null;
 }

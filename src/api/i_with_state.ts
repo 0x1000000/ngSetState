@@ -1,13 +1,20 @@
-import { OnChanges } from "@angular/core";
+import { ComponentState, ComponentStateDiff, ISharedStateChangeSubscription } from "./state_tracking";
 
-export interface IWithState<TState> extends IStateHolder<TState>, OnChanges {
-    modifyState(propName: keyof TState, value: any): boolean;
+export interface IWithState<TComponent> extends IStateHolder<TComponent> {
+    modifyState<TK extends keyof NonNullable<ComponentStateDiff<TComponent>>>(propName: TK, value: NonNullable<ComponentStateDiff<TComponent>>[TK]): boolean;
 
-    onAfterStateApplied?(previousState?: TState): void;
+    onAfterStateApplied?(previousState?: ComponentState<TComponent>): void;
+
+    subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
+
+    whenAll(): Promise<any>;
+
+    release(): void;
 }
 
-export interface IStateHolder<TState> {
-    state: TState;
+export interface IStateHolder<TComponent> {
 
-    modifyStateDiff(diff: Partial<TState> | null): boolean;
+    state: ComponentState<TComponent>;
+
+    modifyStateDiff(diff: ComponentStateDiff<TComponent>): boolean;
 }

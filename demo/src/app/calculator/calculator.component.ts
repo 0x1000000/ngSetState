@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter  } from '@angular/core';
-import { ComponentState, ComponentStateDiff, initializeStateTracking, StateTracking, With } from "ng-set-state";
+import { ComponentState, ComponentStateDiff, initializeStateTracking, With } from "ng-set-state";
 
 export type Operation = "add" | "sub";
 

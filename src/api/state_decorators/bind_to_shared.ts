@@ -10,7 +10,7 @@ export function BindToShared<TComponent>(sharedProp?: keyof TComponent, index?: 
         const stateMeta = Functions.ensureStateMeta(target);
 
         if (stateMeta.sharedBindings[propertyKey as any] != null) {
-            throw new Error(`"Property '${propertyKey}' has been already bound to a shared state propery.`);
+            throw new Error(`"Property '${propertyKey?.toString()}' has been already bound to a shared state propery.`);
         }
         stateMeta.sharedBindings[propertyKey as any] = index == null ? sharedProp : [sharedProp, index];
     }

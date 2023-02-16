@@ -1,45 +1,43 @@
-import { SimpleChanges } from '@angular/core';
 import { IWithState } from './i_with_state';
-import { Constructor, NgComponentType } from './common';
-import { StateMeta } from './../impl/domain';
+import { Constructor } from './common';
 import { Functions } from './../impl/functions';
+import { ComponentStateDiff, InitStateTrackingOptions } from './state_tracking';
 
-export function WithState<TState>(stateType: Constructor<TState>, ngInputs: string[], ngOutputs: string[], factory?: () => TState): (t: Constructor<any>) => any {
+type InitialOptions<TComponent> = Omit<InitStateTrackingOptions<TComponent>, 'onStateApplied'>;
+type FactoryOrOptions<TComponent> = (() => ComponentStateDiff<TComponent>) | InitialOptions<TComponent>;
+
+export function WithState<TComponent>(stateType: Constructor<TComponent>, factory?: FactoryOrOptions<TComponent>): (t: Constructor<any>) => any {
 
     if (stateType == null) {
         throw new Error("Initial state type should be defined or a factory provided");
     }
 
-    const stateMeta: StateMeta<TState> = Functions.ensureStateMeta<TState>(stateType);
-    stateMeta.stateConstructor = stateType;
+    return (target: Constructor<any>) => {
+        return class extends target implements Partial<IWithState<TComponent>> {
 
-    return (target: NgComponentType) => {
-        return class extends target implements IWithState<TState> {
+            constructor(...args: any[]) {
+                super(...args);
 
-            public state: TState = (() => {
 
-                const initialState = factory != null ? factory() : new stateType();
+                var component = new stateType();
 
-                Functions.initialize(this, initialState, ngInputs, ngOutputs);
-
-                return initialState;
-            })();
-
-            public modifyState<TK extends keyof TState>(propName: TK, value: TState[TK]): boolean {
-                return Functions.modifyState(this, propName, value);
-            }
-
-            public modifyStateDiff(diff: Partial<TState> | null): boolean {
-                return Functions.nextState(this, diff);
-            }
-
-            public ngOnChanges(changes: SimpleChanges): void {
-
-                Functions.ngOnChanges(this, changes);
-
-                if (super.ngOnChanges) {
-                    super.ngOnChanges(changes);
+                if (component == null) {
+                    throw new Error("Constructor has not returned an object");
                 }
+
+                let options: InitialOptions<TComponent> | undefined = undefined;
+
+                if (factory != null) {
+                    if (typeof factory === 'function') {
+                        options = {
+                            initialState: factory(),
+                        }
+                    } else {
+                        options = factory;
+                    }
+                }
+
+                Functions.makeWithState(this, component, options)
             }
         };
     };
