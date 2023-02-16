@@ -4,7 +4,7 @@ import { PromiseList, delayMs } from './helpers';
 
 describe('Asynchronous tests: OnConcurrentLaunch...', () => {
 
-    async function onConcurrentLaunchBody(expected: number, behaviour: string): Promise<any> {
+    async function onConcurrentLaunchBody(expected: number, behavior: string): Promise<any> {
         const promiseList = new PromiseList();
 
         const p1 = promiseList.add();
@@ -12,7 +12,7 @@ describe('Asynchronous tests: OnConcurrentLaunch...', () => {
         const p3 = promiseList.add();
 
         const component: TestOnConcurrentLaunchComponent = TestOnConcurrentLaunchComponent.create(() => promiseList.next());
-        component.setMeta(behaviour);
+        component.setMeta(behavior);
 
         component.modifyState("arg", 1);
         component.modifyState("arg", 2);
@@ -389,8 +389,8 @@ class TestOnConcurrentLaunchComponent extends WithStateBase<TestOnConcurrentLaun
 
     public getResult() { return this.state.result };
 
-    public setMeta(behaviour: string) {
-        this._c.constructor["__state_meta__"].modifiers[0].fun[0].asyncData.behaviourOnConcurrentLaunch = behaviour;
+    public setMeta(behavior: string) {
+        this._c.constructor["__state_meta__"].modifiers[0].fun[0].asyncData.behaviorOnConcurrentLaunch = behavior;
     }
 }
 

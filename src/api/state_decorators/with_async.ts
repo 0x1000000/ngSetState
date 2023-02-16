@@ -12,8 +12,8 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
 
     const asyncData: AsyncData = {
         locks: [],
-        behaviourOnConcurrentLaunch: "putAfter",
-        behaviourOnError: "throw",
+        behaviorOnConcurrentLaunch: "putAfter",
+        behaviorOnError: "throw",
         predicate: null,
         finalizer: null
     };
@@ -27,8 +27,8 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
 
             const debounceAsyncData: AsyncData = {
                 locks: null,
-                behaviourOnConcurrentLaunch: "replace",
-                behaviourOnError: "throw",
+                behaviorOnConcurrentLaunch: "replace",
+                behaviorOnError: "throw",
                 predicate: null,
                 finalizer: null
             };
@@ -65,22 +65,22 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
     const optional: IWithAsyncAllOptions<TComponent> = {
         OnConcurrentLaunchCancel: () => {
             checkOnConcurrent();
-            asyncData.behaviourOnConcurrentLaunch = "cancel";
+            asyncData.behaviorOnConcurrentLaunch = "cancel";
             return result;
         },
         OnConcurrentLaunchPutAfter: () => {
             checkOnConcurrent();
-            asyncData.behaviourOnConcurrentLaunch = "putAfter";
+            asyncData.behaviorOnConcurrentLaunch = "putAfter";
             return result;
         },
         OnConcurrentLaunchReplace: () => {
             checkOnConcurrent();
-            asyncData.behaviourOnConcurrentLaunch = "replace";
+            asyncData.behaviorOnConcurrentLaunch = "replace";
             return result;
         },
         OnConcurrentLaunchConcurrent: () => {
             checkOnConcurrent();
-            asyncData.behaviourOnConcurrentLaunch = "concurrent";
+            asyncData.behaviorOnConcurrentLaunch = "concurrent";
             return result;
         },
         Locks: (...lockIds: string[]) => {
@@ -90,17 +90,17 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
         },
         OnErrorThrow: () => {
             checkOnError();
-            asyncData.behaviourOnError = "throw";
+            asyncData.behaviorOnError = "throw";
             return result;
         },
         OnErrorForget: () => {
             checkOnError();
-            asyncData.behaviourOnError = "forget";
+            asyncData.behaviorOnError = "forget";
             return result;
         },
         OnErrorCall: (method: (currenTComponent: TComponent, error: any) => Partial<TComponent> | null) => {
             checkOnError();
-            asyncData.behaviourOnError = { callMethod: method };
+            asyncData.behaviorOnError = { callMethod: method };
             return result;
         },
         Debounce: (inDebounceMs: number) => {

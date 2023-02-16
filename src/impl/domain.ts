@@ -47,14 +47,14 @@ export function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifi
     return (<AsyncModifier<TState>>modifier).asyncData != null;
 }
 
-export type BehaviourOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent";
-export type BehaviourOnError = "throw" | "forget" | {callMethod: (currentState: any, error: any) => any};
+export type behaviorOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent";
+export type behaviorOnError = "throw" | "forget" | {callMethod: (currentState: any, error: any) => any};
 
 export type AsyncData =
 {
     locks: string[] | null,
-    behaviourOnConcurrentLaunch: BehaviourOnConcurrentLaunch;
-    behaviourOnError: BehaviourOnError;
+    behaviorOnConcurrentLaunch: behaviorOnConcurrentLaunch;
+    behaviorOnError: behaviorOnError;
     predicate: ((state: any) => boolean) | null;
     finalizer: (() => any) | null;
 }

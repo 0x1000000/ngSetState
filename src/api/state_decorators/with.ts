@@ -19,8 +19,8 @@ export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAn
 
                 const asyncData: AsyncData = {
                     locks: null,
-                    behaviourOnConcurrentLaunch: "replace",
-                    behaviourOnError: "throw",
+                    behaviorOnConcurrentLaunch: "replace",
+                    behaviorOnError: "throw",
                     predicate: null,
                     finalizer: null
                 };

@@ -13,23 +13,23 @@ export class RunningPool<TComponent> {
 
         const running = this.getByModifierId(modifier);
 
-        const behaviour = modifier.asyncData.behaviourOnConcurrentLaunch;
+        const behavior = modifier.asyncData.behaviorOnConcurrentLaunch;
 
         let oldId: number|null = null;
 
         if (running) {
-            if (behaviour === "replace") {
+            if (behavior === "replace") {
                 oldId = running.id;
             }
-            else if (behaviour === "cancel") {
+            else if (behavior === "cancel") {
                 return null;
             }
-            else if (behaviour === "putAfter") {
+            else if (behavior === "putAfter") {
                 running.next = modifier;
                 return null;
             }
-            else if (behaviour !== "concurrent") {
-                throw new Error("Unknown behaviour: " + behaviour);
+            else if (behavior !== "concurrent") {
+                throw new Error("Unknown behavior: " + behavior);
             }
         }
 

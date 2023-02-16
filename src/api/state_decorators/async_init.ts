@@ -7,8 +7,8 @@ export function AsyncInit<TState>(): IWithAsync<TState> & IAsyncInitLocks<TState
 
     const asyncData: AsyncData = {
         locks: [],
-        behaviourOnConcurrentLaunch: "concurrent",
-        behaviourOnError: "throw",
+        behaviorOnConcurrentLaunch: "concurrent",
+        behaviorOnError: "throw",
         finalizer: null,
         predicate: null
     };

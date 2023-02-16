@@ -85,18 +85,18 @@ export class AsyncState<TComponent> {
                     asyncDiff = await res;
                 } catch (error) {
                     asyncDiff = null;
-                    if (mod.asyncData.behaviourOnError === "forget") {
-                    } else if (mod.asyncData.behaviourOnError === "throw") {
+                    if (mod.asyncData.behaviorOnError === "forget") {
+                    } else if (mod.asyncData.behaviorOnError === "throw") {
                         throw error;
-                    } else if (mod.asyncData.behaviourOnError.callMethod != null) {
+                    } else if (mod.asyncData.behaviorOnError.callMethod != null) {
                         if (this._pool.exists(id)) { //if was not replaced
-                            const errorDiff = mod.asyncData.behaviourOnError.callMethod(this._component.state, error);
+                            const errorDiff = mod.asyncData.behaviorOnError.callMethod(this._component.state, error);
                             if (errorDiff != null) {
                                 this._component.modifyStateDiff(errorDiff);
                             }
                         }
                     } else {
-                        throw new Error("Unknown error behaviour: " + mod.asyncData.behaviourOnError);
+                        throw new Error("Unknown error behavior: " + mod.asyncData.behaviorOnError);
                     }
                 }
 
