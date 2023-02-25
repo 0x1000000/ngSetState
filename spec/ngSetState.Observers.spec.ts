@@ -1,6 +1,6 @@
 import { } from "jasmine";
 import { BehaviorSubject, Subject } from "rxjs";
-import { BindToShared, ComponentState, ComponentStateDiff, Emitter, initializeStateTracking, IStateHandler, releaseStateTracking, StateTracking, With, WithAsync } from "../src";
+import { BindToShared, ComponentState, ComponentStateDiff, Emitter, IncludeInState, initializeImmediateStateTracking, initializeStateTracking, IStateHandler, releaseStateTracking, StateTracking, With, WithAsync, WithSharedAsSource, WithSharedAsSourceArg, WithSharedAsTarget, WithSharedAsTargetArg } from "../src";
 import { delayMs, EventEmitter } from "./helpers";
 
 describe('Observers...', () => {
@@ -125,6 +125,8 @@ describe('Observers...', () => {
             public arg2 = 0;
         
             public result = new Subject<number>();
+
+            public p = new Subject<number>()
         
             constructor() {
                 initializeStateTracking(this, { immediateEvaluation: true })
@@ -161,6 +163,12 @@ describe('Observers...', () => {
 
         expect(component.result).toBe(5);
         expect(component.resultStr).toBe(7);
+
+        //From client to service
+
+        component.result = 77;
+
+        expect(serviceResult).toBe(77);
     });
 
     it('ComponentWithMixedArguments', async () => {
@@ -244,5 +252,225 @@ describe('Observers...', () => {
         await delayMs(0);
 
         expect(resValue).toBe(10);
+    });
+
+
+    it('Shared observables through modifyState', async () => {
+        @StateTracking({ immediateEvaluation: true })
+        class Service {
+            @IncludeInState()
+            public value = new Subject<number>();
+        }
+        
+        class Client {
+
+            @BindToShared()
+            value: number;
+
+            stateHandler: IStateHandler<Client>;
+
+            constructor(s: Service) {
+                this.stateHandler = initializeImmediateStateTracking<Client>(this, {sharedStateTracker: s});
+            }            
+        }
+
+        const service = new Service();
+
+        let sv;
+
+        service.value.subscribe(v => sv = v);
+
+        const client = new Client(service);
+
+        client.stateHandler.modifyStateDiff({value: 17});
+
+        expect(sv).toBe(17);
+
+    });
+
+    it('WithSharedAsSource', async () => {
+        class SharedObservables1 {
+            public arg1 = new Subject<number>();
+        
+            public arg2 = 0;
+        
+            public result = new Subject<number>();
+       
+            constructor() {
+                initializeImmediateStateTracking(this);
+            }
+        
+            @With('arg1', 'arg2')
+            static calc(state: ComponentState<SharedObservables1>): ComponentStateDiff<SharedObservables1> {
+                return { result: (state.arg1??0) + state.arg2 };
+            }
+        }
+
+        class SharedObservables2 {
+            public arg1 = new Subject<number>();
+        
+            public arg2 = 0;
+        
+            public result = new Subject<number>();
+       
+            constructor() {
+                initializeImmediateStateTracking(this)
+            }
+        
+            @With('arg1', 'arg2')
+            static calc(state: ComponentState<SharedObservables1>): ComponentStateDiff<SharedObservables1> {
+                return { result: (state.arg1??0) + state.arg2 };
+            }
+        }
+
+        class SharedObservablesClient {
+
+            public resultSrv1Plus2Mul2 = 0;
+
+            public resultSrv1Plus2Mul2Plus3 = 0;
+
+            public resultSrv2 = 0;
+        
+            constructor(service: SharedObservables1, service2: SharedObservables2) {
+                initializeImmediateStateTracking(this, { sharedStateTracker: [service, service2] })
+                    .subscribeSharedStateChange();
+            }   
+        
+            public release() {
+                releaseStateTracking(this);
+            }
+        
+            @WithSharedAsSource(SharedObservables1, 'result')
+            static produceResult(s: WithSharedAsSourceArg<SharedObservablesClient, SharedObservables1>): ComponentStateDiff<SharedObservablesClient> {
+                return {
+                    resultSrv1Plus2Mul2: (s.currentSharedState.result ?? 0) + 2
+                };
+            }
+
+            @WithSharedAsSource(SharedObservables1, 'result')
+            static produceResult2(s: WithSharedAsSourceArg<SharedObservablesClient, SharedObservables1>): ComponentStateDiff<SharedObservablesClient> {
+                return {
+                    resultSrv1Plus2Mul2: (s.currentSharedState.result ?? 0) + s.currentState.resultSrv1Plus2Mul2
+                };
+            }
+
+            @With('resultSrv1Plus2Mul2')
+            static incResult(s: ComponentState<SharedObservablesClient>): ComponentStateDiff<SharedObservablesClient> {
+                return {
+                    resultSrv1Plus2Mul2Plus3: s.resultSrv1Plus2Mul2  + 3
+                };
+            }
+
+            @WithSharedAsSource(SharedObservables2, 'result')
+            static produceResultS2(s: WithSharedAsSourceArg<SharedObservablesClient, SharedObservables2>): ComponentStateDiff<SharedObservablesClient> {
+                return {
+                    resultSrv2: s.currentSharedState.result
+                };
+            }
+        }
+
+        const service = new SharedObservables1();
+        const service2 = new SharedObservables2();
+ 
+        const component = new SharedObservablesClient(service, service2);
+
+        service.arg1.next(1);
+        let service1Result: number = -1;
+        service.result.subscribe(r => service1Result = r);
+        service.arg2 = 2;
+
+        expect(service1Result).toBe(3);
+        expect(component.resultSrv1Plus2Mul2).toBe(8);
+        expect(component.resultSrv1Plus2Mul2Plus3).toBe(11);
+
+        let service2Result: number = -1;
+        service2.result.subscribe(r => service2Result = r);
+        service2.arg1.next(10);
+        service2.arg2 = 20;
+
+        expect(service2Result).toBe(30);
+        expect(component.resultSrv2).toBe(30);
+    });
+
+    fit('WithSharedAsTarget', async () => {
+
+        class Service1 {
+            result = new Subject<number>();
+
+            constructor() {
+                initializeImmediateStateTracking(this);
+            }            
+        }
+
+        class Service2 {
+            result = new Subject<number>();
+
+            constructor() {
+                initializeImmediateStateTracking(this);
+            }            
+        }
+
+        class Client {
+            arg1: number = 0;
+
+            arg2: number = 0;
+
+            intermediateResult: number;
+
+            handler: IStateHandler<Client>;
+
+            constructor(service1: Service1, service2: Service2) {
+                this.handler = initializeImmediateStateTracking<Client>(this, {sharedStateTracker: [service1, service2]});
+
+                this.handler.subscribeSharedStateChange();
+            }            
+
+            @WithSharedAsTarget(Service1, 'arg1', 'arg2')
+            static sum(arg: WithSharedAsTargetArg<Client, Service1>): ComponentStateDiff<Service1> {    
+                return {result: arg.currentState.arg1 + arg.currentState.arg2};
+            }
+
+            @WithSharedAsSource(Service1, 'result')
+            static onResult(arg: WithSharedAsSourceArg<Client, Service1>): ComponentStateDiff<Client> {    
+                return {
+                    intermediateResult: arg.currentSharedState.result
+                };
+            }
+
+            @WithSharedAsTarget(Service1, 'intermediateResult')
+            static sum2(arg: WithSharedAsTargetArg<Client, Service1>): ComponentStateDiff<Service1> {
+
+                if(arg.currentState.intermediateResult === arg.currentState.arg1 + arg.currentState.arg2) {
+                    return {
+                        result: arg.currentState.intermediateResult + 2
+                    }
+                }
+                return null;
+            }
+
+            @WithSharedAsTarget(Service2, 'intermediateResult')
+            static toS2(arg: WithSharedAsTargetArg<Client, Service2>): ComponentStateDiff<Service2> {    
+                return { result: arg.currentState.intermediateResult + 4 };
+            }
+        }
+
+        const service = new Service1();
+        const service2 = new Service2();
+
+        let result: number = -1;
+        let result2: number = -1;
+
+        service.result.subscribe(r => result = r);
+        service2.result.subscribe(r => result2 = r);
+
+        const client = new Client(service, service2);
+
+        client.arg1 = 2;
+        expect(result).toBe(4);
+        expect(result2).toBe(6);
+        client.handler.modifyStateDiff({arg2: 3});
+
+        expect(result).toBe(7);
+        expect(result2).toBe(9);
     });
 });

@@ -52,6 +52,16 @@ export interface ISharedStateChangeSubscription {
     unsubscribe();
 }
 
+export function initializeImmediateStateTracking<TComponent extends Object>(component: TComponent, options?: Omit<InitStateTrackingOptions<TComponent>, 'immediateEvaluation'>): IStateHandler<TComponent> {
+
+    const o: InitStateTrackingOptions<TComponent> = {};
+
+    Object.assign(o, options);
+    o.immediateEvaluation = true;
+
+    return initializeStateTracking(component, o);
+}
+
 export function initializeStateTracking<TComponent extends Object>(component: TComponent, options?: InitStateTrackingOptions<TComponent>): IStateHandler<TComponent> {
 
     const target = (<any>component)?.constructor;

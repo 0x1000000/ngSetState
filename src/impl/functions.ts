@@ -5,6 +5,33 @@ import { ComponentState, ComponentStateDiff, initializeStateTracking, InitStateT
 import { IWithState } from './../api/i_with_state';
 
 export class Functions {
+
+    public static addSharedModifier<TComponent>(toShared: boolean, sharedType: Constructor<any>, target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof any)[]) {
+        if (sharedType == null) {
+            throw new Error(`Shared type should be specified for '${propertyKey}' in. Make sure it is defined before it is used`);
+        }
+        const stateMeta = Functions.ensureStateMeta(target);
+        let modifier: Modifier<any> = descriptor.value;
+
+        const array = toShared ? stateMeta.sharedTargetMappers : stateMeta.sharedSourceMappers;
+    
+        for (const propName of propNames) {
+            let detect = false;
+            for (const m of array) {    
+                if (m.prop === propName && m.sharedType === sharedType) {
+                    if (m.fun.indexOf(modifier)>=0) {
+                        throw new Error(`Modifier for shared type '${sharedType}' with name '${propertyKey}' has been already declared`);
+                    }
+                    m.fun.push(modifier);
+                    detect = true;
+                }
+            }
+    
+            if (!detect) {
+                array.push({ prop: propName as any, sharedType: sharedType ,fun: [modifier] });
+            }
+        }    
+    }
   
     public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null) {
         const stateMeta = Functions.ensureStateMeta(target);
@@ -166,6 +193,8 @@ export class Functions {
             modifiers: [],
             explicitStateProps: [],
             sharedBindings: {},
+            sharedSourceMappers: [],
+            sharedTargetMappers: [],
             asyncInit: null
         };
 

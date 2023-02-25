@@ -24,6 +24,8 @@ export interface StateMeta<TComponent> {
     emitters: (keyof S<TComponent>)[];
     emitterMaps: { [key: string]: keyof S<TComponent> };
     modifiers: { prop: (keyof S<TComponent>), fun: (Modifier<TComponent> | AsyncModifier<TComponent>)[] }[];
+    sharedSourceMappers: { prop: (keyof any), sharedType: Constructor<any>, fun: Modifier<TComponent>[] }[];
+    sharedTargetMappers: { prop: (keyof S<TComponent>), sharedType: Constructor<any>, fun: Modifier<any>[] }[];
     explicitStateProps: (keyof S<TComponent>)[];
     sharedBindings: { [key: string]: SharedBindingRef };
     asyncInit: AsyncModifier<TComponent> | null;

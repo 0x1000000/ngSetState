@@ -1,15 +1,19 @@
 import { Functions } from '../impl/functions';
 import { AsyncState } from '../impl/async_state';
-import { StateMeta } from './domain';
+import { StateMeta, Modifier, isAsyncModifier } from './domain';
 import { EMITTER_SUFFIX } from './domain';
 import { cmpByProp, cmp, checkIsEventEmitterLike, checkIsObservableLike, checkIsSubjectLike } from './utils';
 import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler } from '../api/state_tracking';
 import { EventEmitterLike, SubscriptionLike, SubjectLike, ObservableLike } from './../api/common';
 import { IStateHolder } from './../api/i_with_state';
+import { WithSharedAsSourceArg } from './../api/state_decorators/with_shared_as_source';
+import { WithSharedAsTargetArg } from './../api/state_decorators/with_shared_as_target';
 
 type PropertyKey = keyof any;
 
-type SharedPropMap = { [componentProp: string]: [Object, keyof any] };
+type SharedPropMap<TComponent> = {
+    [componentProp in keyof ComponentStateDiff<TComponent>]?: [sharedComponent: Object, sharedComponentProperty: keyof any];
+};
 
 interface IStateTrackerSubscriber {
     onStateChange(sharedState: Object, state: Object, previous: Object);
@@ -65,11 +69,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private static readonly notifyQueue = new StateTrackerEventQueue();
 
-    private _callbackIsScheduled: boolean = false;
-
-    private _changesBuffer: ComponentStateDiff<TComponent> | null;
-
-    private readonly _emittersDict: { [k: string]: EventEmitterLike<any> | SubjectLike<any> } = {};
+    private readonly _emittersDict: { [k in keyof TComponent]?: EventEmitterLike<any> | SubjectLike<any> } = {};
 
     private readonly _stateMeta: StateMeta<any>;
 
@@ -77,11 +77,15 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private readonly _options: StateTrackingOptions<TComponent>;
 
-    private readonly _sharedState: Object | Object[] | null;
+    private readonly _sharedComponents: Object | Object[] | null;
 
-    private readonly _sharedStatePropMap: SharedPropMap | null;
+    private readonly _sharedComponentPropBindingMap: SharedPropMap<TComponent> | null;
 
     private readonly _subscribers: IStateTrackerSubscriber[] = [];
+
+    private _callbackIsScheduled: boolean = false;
+
+    private _changesBuffer: ComponentStateDiff<TComponent> | null;
 
     private _subscription: ISharedStateChangeSubscription | null = null;
 
@@ -104,7 +108,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         return undefined;
     }
 
-    constructor(component: TComponent, stateMeta: StateMeta<any>, options: StateTrackingOptions<TComponent> | null |undefined) {
+    constructor(component: TComponent, stateMeta: StateMeta<TComponent>, options: StateTrackingOptions<TComponent> | null | undefined) {
 
         if (component[StateTrackerContext.contextRefPropertyId]) {
             throw new Error("This component has already been initialized with a state tracker");
@@ -142,6 +146,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         
         // adds explicitly defined properties
         props.push(...this._stateMeta.explicitStateProps.filter(e => props.indexOf(e) < 0));
+        props.push(...this._stateMeta.sharedSourceMappers.map(x => x.prop as any).filter(e => props.indexOf(e) < 0));
+        props.push(...this._stateMeta.sharedTargetMappers.map(x => x.prop as any).filter(e => props.indexOf(e) < 0));
 
         //finds EventEmitters, Subjects and predefined props
         for (const key of Object.keys(this._component)) {
@@ -213,8 +219,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }       
 
         //Replacing with getters and setters with pointing to a shared state
-        this._sharedState = this._options.getSharedStateTracker?.call(component, component);
-        this._sharedStatePropMap = this.connectToSharedTrackers();
+        this._sharedComponents = this._options.getSharedStateTracker?.call(component, component);
+        this._sharedComponentPropBindingMap = this.connectToSharedTrackers();
 
         //Constructing stateTrackerHandler
         this._options.setHandler?.call(component, component, handler);
@@ -237,23 +243,23 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
     }
 
     //It is called from constructor just to reduce its size
-    private connectToSharedTrackers(): SharedPropMap| null {
-        if (this._sharedState == null) {
+    private connectToSharedTrackers(): SharedPropMap<TComponent> | null {
+        if (this._sharedComponents == null) {
             return null;
         }
-        const sharedStatePropMap = {};
+        const resultSharedPropMap: SharedPropMap<TComponent> = {};
         const sharedPropsWatchDog = new Set<keyof any>();
-        const sharedTrackers = this.ensureArray(this._sharedState);
-        const nameCollisionWatchDog = sharedTrackers.length > 1 ? new Set<string>() : null;
-        for (let i = 0; i < sharedTrackers.length; i++) {
-            const sharedTracker = sharedTrackers[i];
+        const sharedComponents = this.ensureArray(this._sharedComponents);
+        const nameCollisionWatchDog = sharedComponents.length > 1 ? new Set<string>() : null;
+        for (let i = 0; i < sharedComponents.length; i++) {
+            const sharedComponent = sharedComponents[i];
             const bindings = Object.keys(this._stateMeta.sharedBindings);
 
             if (bindings.length < 0) {
                 throw new Error("The component shares a state tracker and it should have at least one binding to it.");
             }
 
-            if (!sharedTracker[StateTrackerContext.contextRefPropertyId] || this === sharedTracker) {
+            if (!sharedComponent[StateTrackerContext.contextRefPropertyId] || this === sharedComponent) {
                 throw new Error("Only other state trackers can be specified as a shared state tracker");
             }
 
@@ -266,7 +272,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                         : null
                     : sharedBinding;
 
-                if (sharedBindingProp == null && sharedBinding[1] >= sharedTrackers.length) {
+                if (sharedBindingProp == null && sharedBinding[1] >= sharedComponents.length) {
                     throw new Error(`The index ${sharedBinding[1]} in  ${bindingProp}=> ${sharedBinding[0]} is out of the range`);
                 }
 
@@ -276,8 +282,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
                 if (sharedBindingProp != null) {
 
-                    const isSetter = this.checkIsSetter(sharedTracker, sharedBindingProp);
-                    const isObservable = checkIsObservableLike(sharedTracker[sharedBindingProp]);
+                    const isSetter = this.checkIsSetter(sharedComponent, sharedBindingProp);
+                    const isObservable = checkIsObservableLike(sharedComponent[sharedBindingProp]);
 
                     if(isSetter || isObservable){
                         sharedPropsWatchDog.delete(sharedBindingProp);
@@ -287,9 +293,9 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                         }
                         nameCollisionWatchDog?.add(bindingProp);
     
-                        sharedStatePropMap[bindingProp as any] = [sharedTracker, sharedBindingProp];
+                        resultSharedPropMap[bindingProp as any] = [sharedComponent, sharedBindingProp];
     
-                        this.replaceSharedMember(bindingProp, sharedBindingProp, sharedTracker);    
+                        this.replaceMemberBoundToShared(bindingProp, sharedBindingProp, sharedComponent);    
                     }
                 }
             }
@@ -300,7 +306,128 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             throw new Error(`Could not find "${fields}" field(s) in the shared state tracker. Make sure it is included in to the state.`);
         }
 
-        return sharedStatePropMap;
+        return resultSharedPropMap;
+    }
+
+    public updateSharedComponentsAfterThisStateChange(newState: ComponentState<TComponent>, oldState: ComponentState<TComponent>, newStateKeys: any[]) {
+
+        if (this._sharedComponents == null || (this._sharedComponentPropBindingMap == null && this._stateMeta.sharedTargetMappers.length < 1)) {
+            return;
+        }
+
+        const sharedComponents = this.ensureArray(this._sharedComponents);
+
+        let sharedStateChangeAcc: {sharedComponent: Object, diff: Object} [] | undefined;
+
+        let targetMappers: {sharedComponent: Object, fun: (Modifier<any>)[]} [] | undefined;
+
+        for(const p of newStateKeys) {
+            //Bound properties
+            if (this._sharedComponentPropBindingMap != null && !cmpByProp(oldState, newState, p)) {
+                const sharedCompAndProp: [Object, keyof any] = this._sharedComponentPropBindingMap[p];
+                if (sharedCompAndProp != null) {
+                    const [sharedComponent, sharedProp] = sharedCompAndProp;
+                    /*const desc = Object.getOwnPropertyDescriptor(sharedComponent, sharedProp);
+                    if (desc != null && desc.set != null && !cmpByProp(previousState, newState, p)) {
+                        desc.set.call(sharedComponent, newState[p]);
+                    } else */
+                    pushToAcc(sharedComponent, sharedProp, newState[p]);
+                }
+            }
+
+            //AsTarget
+            if (this._stateMeta.sharedTargetMappers.length > 0 && !cmpByProp(oldState, newState, p)) {
+                for(const sharedMapper of this._stateMeta.sharedTargetMappers) {
+                    if(sharedMapper.prop === p) {
+                        for(const sharedComponent of sharedComponents) {
+                            if(sharedComponent instanceof sharedMapper.sharedType) {
+                                pushToTargetMappers(sharedComponent, sharedMapper.fun);
+                            }
+                        }                        
+                    }
+                }
+            }
+        }
+
+        //Invoke target mappers
+        if (targetMappers != null) {
+            for (const targetMapper of targetMappers) {
+                const sharedHandler: IStateHandler<any> = targetMapper.sharedComponent[StateTrackerContext.contextRefPropertyId]?.getHandler();
+                if (sharedHandler == null) {
+                    throw new Error('Shared component should be initialized with state tracking')
+                }
+                for (const fun of targetMapper.fun) {
+                    const arg: WithSharedAsTargetArg<any, any> = {
+                        currentSharedState: sharedHandler.getState(),
+                        previousState: oldState,
+                        currentState: newState
+                    };
+    
+                    const diff = fun.apply(this._component, [arg]);
+                    if(diff != null){
+                        pushToAccDiff(targetMapper.sharedComponent, diff);
+                    }                    
+                }
+            }
+        }
+
+        if(sharedStateChangeAcc != null) {
+            for (const {sharedComponent, diff} of sharedStateChangeAcc) {
+                const sharedHandler: IStateHandler<any> = sharedComponent[StateTrackerContext.contextRefPropertyId]?.getHandler();
+                if (sharedHandler == null) {
+                    throw new Error('Shared component should be initialized with state tracking')
+                }
+                sharedHandler.modifyStateDiff(diff);
+            }
+        }
+
+        function pushToAcc(sharedComponent: Object, sharedProp: any, newValue: any) {
+            if(sharedStateChangeAcc == null) {
+                sharedStateChangeAcc = [];
+            }
+
+            let t = sharedStateChangeAcc.find(x=> x.sharedComponent === sharedComponent);
+            if (t == null) {
+                const diff = {};
+                diff[sharedProp] = newValue;
+                t = {sharedComponent, diff};
+                sharedStateChangeAcc.push(t)
+            } else {
+                t.diff[sharedProp] = newValue;
+            }
+        }
+
+        function pushToAccDiff(sharedComponent: Object, diff: any) {
+            if(sharedStateChangeAcc == null) {
+                sharedStateChangeAcc = [];
+            }
+
+            let t = sharedStateChangeAcc.find(x=> x.sharedComponent === sharedComponent);
+            if (t == null) {
+                t = {sharedComponent, diff};
+                sharedStateChangeAcc.push(t)
+            } else {
+                Object.assign(t.diff, diff);
+            }
+        }
+
+        function pushToTargetMappers(sharedComponent: Object, fs: (Modifier<any>)[]){
+            if (targetMappers == null) {
+                targetMappers = [];
+            }
+
+            let t = targetMappers.find(x => x.sharedComponent === sharedComponent);
+
+            if (!t) {
+                t = {sharedComponent, fun: []};
+                targetMappers.push(t);
+            }
+            for(const fun of fs) {
+                if(t.fun.indexOf(fun) < 0) {
+                    t.fun.push(fun);
+                }    
+            }
+        }
     }
 
     public modifyStateDiff(diff: ComponentStateDiff<TComponent>): boolean {
@@ -319,26 +446,17 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             const result = this.state !== previousState;
 
             //Add missing getters and setters if a prop returned by a modifier
-            const newStateKeys = Object.keys(newState) as (keyof ComponentStateDiff<TComponent>)[];
+            const newStateKeys: any[] = Object.keys(newState) as (keyof any)[];
             for (const p of newStateKeys) {
                 if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
                     if (!checkIsEventEmitterLike(this._component[p]) && !checkIsObservableLike(this._component[p])) {
                         this.replaceMember(p, false);
                     }
                 }
-
-                //Copy to shared state
-                if (this._sharedState != null) {
-                    const sharedProp = this._sharedStatePropMap![p as any];
-                    if (sharedProp != null) {
-                        const desc = Object.getOwnPropertyDescriptor(sharedProp[0], sharedProp[1]);
-                        if (desc != null && desc.set != null && !cmpByProp(previousState, newState, p)) {
-                            desc.set.call(sharedProp[0], newState[p]);
-                        }
-                    }
-                }
-
             }
+
+            this.updateSharedComponentsAfterThisStateChange(newState, previousState, newStateKeys);
+
             //Emit outputs
             if (result || alwaysEmittedProps != null) {
                 for (const emitterProp of Object.keys(this._emittersDict)) {
@@ -413,14 +531,14 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     return this.state[prop];
                 },
                 set: (val) => {
-                    this.onModification(prop, val);
+                    this.componentPropertySetter(prop, val);
                 },
                 enumerable: true,
                 configurable: true//If property was not defined before it would not "configurable"
             });
     }
 
-    private replaceSharedMember(prop: PropertyKey, sharedProp: PropertyKey, sharedTracker: Object) {
+    private replaceMemberBoundToShared(prop: PropertyKey, sharedProp: PropertyKey, sharedComponent: Object) {
 
         if (checkIsObservableLike(this._component[prop])) {
             throw new Error(`Property '${prop?.toString()}' cannot be observable since it is bound to a shared state`);
@@ -428,7 +546,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
         const existingDescriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
-        const sharedValue = sharedTracker[sharedProp]
+        const sharedValue = sharedComponent[sharedProp]
 
         if (!checkIsObservableLike(sharedValue)) {
             //Copy value from shared tracker
@@ -438,7 +556,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 prop,
                 {
                     get: () => {
-                        return sharedTracker[sharedProp];
+                        return sharedComponent[sharedProp];
                     },
                     set: (val) => {
                         if (existingDescriptor?.set) {
@@ -448,7 +566,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
                             existingDescriptor.set.call(this, val);
                         } else {//modifyStateDiff will update it
-                            sharedTracker[sharedProp] = val;
+                            sharedComponent[sharedProp] = val;
                         }
                     },
                     enumerable: true
@@ -481,22 +599,21 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     });    
             }
         }
-
     }
 
-    private syncStateWithShared(sharedState: Object) {
-        if (!this._sharedStatePropMap) {
+    private syncStateWithShared(sharedStateProp: PropertyKey) {
+        if (!this._sharedComponentPropBindingMap) {
             throw new Error("Shared state prop map should be set");
         }
-        const mappedComponentProps = Object.keys(this._sharedStatePropMap);
+        const mappedComponentProps = Object.keys(this._sharedComponentPropBindingMap);
 
         let diff: Object | null = null;//Difference between local and shared states 
 
         for (const componentProp of mappedComponentProps) {
-            const m = this._sharedStatePropMap[componentProp];
-            if (m[0] === sharedState) {
+            const m = this._sharedComponentPropBindingMap[componentProp];
+            if (m[0] === sharedStateProp) {
                 const sharedProp = m[1];
-                const sharedValue = sharedState[sharedProp];
+                const sharedValue = sharedStateProp[sharedProp];
                 if (!cmp(this.state[componentProp], sharedValue)) {
                     if (diff == null) {
                         diff = {};
@@ -512,7 +629,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }
     }
 
-    private onModification(prop: PropertyKey, value: any) {
+    private componentPropertySetter(prop: PropertyKey, value: any) {
         if (this._options.immediateEvaluation) {
             const diff = {};
             diff[prop] = value;
@@ -522,11 +639,11 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 this._changesBuffer = {};
             }
             this._changesBuffer[prop] = value;
-            this.scheduleCallback();
+            this.scheduleNotImmediateCallback();
         }
     }
 
-    private scheduleCallback() {
+    private scheduleNotImmediateCallback() {
         if (!this._callbackIsScheduled) {
             this._callbackIsScheduled = true;
             setTimeout(() => {
@@ -538,8 +655,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }
     }
 
-    public subscribeSharedStateChange(): ISharedStateChangeSubscription | null {
-        if (this._sharedState == null) {
+    private subscribeSharedStateChange(): ISharedStateChangeSubscription | null {
+        if (this._sharedComponents == null) {
             return null;
         }
 
@@ -547,7 +664,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             throw new Error("State tracker has already been subscribed to shared state changes");
         }
 
-        const refs: IStateTrackerRef[] = this.ensureArray(this._sharedState).map(ss => ss[StateTrackerContext.contextRefPropertyId]) ;
+        const refs: IStateTrackerRef[] = this.ensureArray(this._sharedComponents).map(ss => ss[StateTrackerContext.contextRefPropertyId]) ;
 
         const subscribers: IStateTrackerSubscriber[] = [];
         for (const ref of refs) {
@@ -582,21 +699,21 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }
     }
 
-    public whenAll(): Promise<any> {
+    private whenAll(): Promise<any> {
         return AsyncState.whenAll(this);
     }
 
     private onSharedStateChanged(sharedStateComponent: Object, newState: Object, previous: Object) {
-        if (!this._sharedStatePropMap) {
+        if (!this._sharedComponentPropBindingMap) {
             throw new Error("Shared state prop map should be set");
         }
-        const mappedComponentProps = Object.keys(this._sharedStatePropMap);
+        const mappedComponentProps = Object.keys(this._sharedComponentPropBindingMap);
 
         let diff: Object | null = null;//Difference between local and shared states 
         let sharedPrevDiff: Object | null = null;//Difference between old and new shared states 
 
         for (const componentProp of mappedComponentProps) {
-            const m = this._sharedStatePropMap[componentProp];
+            const m = this._sharedComponentPropBindingMap[componentProp];
 
             if (m[0] === sharedStateComponent) {
                 const sharedProp = m[1];
@@ -618,13 +735,46 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             }
         }
 
-        if (sharedPrevDiff == null) {
-            return;
+        const modifierToExec: Modifier<any>[] = [];
+        for(const ms of this._stateMeta.sharedSourceMappers) {
+            if(sharedStateComponent instanceof ms.sharedType) {
+                const sharedCurrentValue = newState[ms.prop];
+                const sharedPrevValue = previous[ms.prop];
+                if (!cmp(sharedCurrentValue, sharedPrevValue)) {
+                    for(const f of ms.fun) {
+                        if (modifierToExec.indexOf(f) < 0){
+                            modifierToExec.push(f);
+                        }    
+                    }
+                }
+            }
         }
 
-        this.state = Object.assign({}, this.state, diff);
-        Object.freeze(this.state);
-        this.modifyStateDiff(sharedPrevDiff as any);
+        if (sharedPrevDiff != null) {
+            if(diff != null) {
+                this.state = Object.assign({}, this.state, diff);
+                Object.freeze(this.state);
+            }
+
+            this.modifyStateDiff(sharedPrevDiff as any);
+        }
+        
+        for(const modifier of modifierToExec) {
+
+            if (!isAsyncModifier(modifier)) {
+
+                const arg: WithSharedAsSourceArg<any, any> = {
+                    currentSharedState: newState,
+                    previousSharedState: previous,
+                    currentState: this.state,
+                };
+
+                const locDiff = modifier.apply(this._component, [arg]);
+                if(locDiff != null) {
+                    this.modifyStateDiff(locDiff);
+                }                
+            }
+        }
     }
 
     private ensureDefaultOptions(options: StateTrackingOptions<TComponent> | null | undefined)
