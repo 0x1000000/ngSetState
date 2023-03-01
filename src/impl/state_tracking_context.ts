@@ -1,10 +1,10 @@
 import { Functions } from '../impl/functions';
 import { AsyncState } from '../impl/async_state';
-import { StateMeta, Modifier, isAsyncModifier } from './domain';
+import { StateMeta, Modifier, isAsyncModifier, isAsyncActionModifier, AsyncActionModifier, ActionModifier } from './domain';
 import { EMITTER_SUFFIX } from './domain';
 import { cmpByProp, cmp, checkIsEventEmitterLike, checkIsObservableLike, checkIsSubjectLike } from './utils';
 import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler } from '../api/state_tracking';
-import { EventEmitterLike, SubscriptionLike, SubjectLike, ObservableLike } from './../api/common';
+import { EventEmitterLike, SubscriptionLike, SubjectLike, ObservableLike, StateActionBase } from './../api/common';
 import { IStateHolder } from './../api/i_with_state';
 import { WithSharedAsSourceArg } from './../api/state_decorators/with_shared_as_source';
 import { WithSharedAsTargetArg } from './../api/state_decorators/with_shared_as_target';
@@ -71,7 +71,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private readonly _emittersDict: { [k in keyof TComponent]?: EventEmitterLike<any> | SubjectLike<any> } = {};
 
-    private readonly _stateMeta: StateMeta<any>;
+    private readonly _stateMeta: StateMeta<TComponent>;
 
     private readonly _component: TComponent;
 
@@ -172,8 +172,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                         this._emittersDict[key] = value;
                     }
                 }
-                else if (this._options.includeAllPredefinedFields && props.indexOf(key) < 0) {
-                    props.push(key);
+                else if (this._options.includeAllPredefinedFields && props.indexOf(key as any) < 0) {
+                    props.push(key as any);
                 }
             }
         }
@@ -182,8 +182,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         if (externalState != null) {
             for (const key of Object.keys(this.state)) {
                 if ((component as Object).hasOwnProperty(key)) {
-                    if (props.indexOf(key) < 0) {
-                        props.push(key);
+                    if (props.indexOf(key as any) < 0) {
+                        props.push(key as any);
                     }
                 }
             }
@@ -231,9 +231,13 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 modifyStateDiff: (diff) => context.modifyStateDiff(diff),
                 subscribeSharedStateChange: () => context.subscribeSharedStateChange(),
                 whenAll: () => context.whenAll(),
+                execAction: (a) => context.execAction(a),
                 release: () => context.release()
             }
         }
+
+        //Calling all modifiers that are marked as CallOnInit()
+        this.callOnInit();
 
         //Push async init modifier
         if (stateMeta.asyncInit != null) {
@@ -309,6 +313,48 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         return resultSharedPropMap;
     }
 
+    //It is called from constructor just to reduce its size
+    private callOnInit() {
+        const modifiersOnInit: {mod: Modifier<TComponent>, arg: Object | null}[] = [];
+        for(const mod of this._stateMeta.modifiers) {
+            for(const f of mod.fun)
+            if (!isAsyncModifier<TComponent>(f)) {
+                if(f.callOnInit) {
+                    if(!modifiersOnInit.some(x=> x.mod === f)) {
+                        modifiersOnInit.push({mod: f, arg: null });
+                    }
+                }
+            }
+        }
+
+        if (this._sharedComponents != null && this._stateMeta.sharedSourceMappers.length > 0) {
+            const sharedComponents = this.ensureArray(this._sharedComponents);
+            for (const sharedComponent of sharedComponents) {
+                for (const sharedSourceMapper of this._stateMeta.sharedSourceMappers) {
+                    if (sharedComponent instanceof sharedSourceMapper.sharedType) {
+                        for (const f of sharedSourceMapper.fun) {
+                            if(!modifiersOnInit.some(x=> x.mod === f && x.arg != null)) {
+                                const handler = StateTrackerContext.tryGetStateHandler(sharedComponent);
+                                if (handler == null) {
+                                    throw new Error('Shared component should be initialized with state tracking');
+                                }
+                                modifiersOnInit.push({mod: f, arg: handler.getState() });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for(const f of modifiersOnInit) {
+            const diff = f.arg == null 
+                ? f.mod.apply(this._component, [this.state, this.state, {}])
+                : f.mod.apply(this._component, [{currentSharedState: f.arg, previousSharedState: f.arg, currentState: this.state} satisfies WithSharedAsSourceArg<TComponent, any>]);
+            if (diff != null) {
+                this.modifyStateDiff(diff);
+            }
+        }
+    }
+
     public updateSharedComponentsAfterThisStateChange(newState: ComponentState<TComponent>, oldState: ComponentState<TComponent>, newStateKeys: any[]) {
 
         if (this._sharedComponents == null || (this._sharedComponentPropBindingMap == null && this._stateMeta.sharedTargetMappers.length < 1)) {
@@ -354,7 +400,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             for (const targetMapper of targetMappers) {
                 const sharedHandler: IStateHandler<any> = targetMapper.sharedComponent[StateTrackerContext.contextRefPropertyId]?.getHandler();
                 if (sharedHandler == null) {
-                    throw new Error('Shared component should be initialized with state tracking')
+                    throw new Error('Shared component should be initialized with state tracking');
                 }
                 for (const fun of targetMapper.fun) {
                     const arg: WithSharedAsTargetArg<any, any> = {
@@ -463,7 +509,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     const se = this._emittersDict[emitterProp];
                     let checkAlwaysEmittedProps = true;
                     if (result) {
-                        if (!cmpByProp(newState, previousState, emitterProp)) {
+                        if (!cmpByProp(newState, previousState, emitterProp as any)) {
                             if(checkIsSubjectLike(se)) {
                                 se.next(newState[emitterProp]);
                             } else {
@@ -474,7 +520,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     }
 
                     if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
-                        if (alwaysEmittedProps.indexOf(emitterProp) >= 0) {
+                        if (alwaysEmittedProps.indexOf(emitterProp as any) >= 0) {
                             if(checkIsSubjectLike(se)) {
                                 se.next(newState[emitterProp]);
                             } else {
@@ -701,6 +747,41 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private whenAll(): Promise<any> {
         return AsyncState.whenAll(this);
+    }
+
+    private execAction<TAction extends StateActionBase>(action: TAction) {
+
+        const modifiers = this._stateMeta.actionModifiers.filter(x => action instanceof x.actionType);
+        if(modifiers.length < 1) {
+            throw new Error(`Action '${typeof action}' is not registered`);
+        }
+
+        let asyncModifiers: AsyncActionModifier<TComponent, TAction>[] | undefined;
+
+        for(const m of modifiers) {
+            for(const fun of m.fun) {
+                const f:(AsyncActionModifier<TComponent, TAction> | ActionModifier<TComponent, TAction>) = fun;
+
+                if(isAsyncActionModifier<TComponent, TAction>(f)) {
+
+                    if(asyncModifiers == null) {
+                        asyncModifiers = [];                    
+                    }
+
+                    asyncModifiers.push(f);
+                    
+                } else {
+                    const diff = f(action, this.state);
+                    if (diff != null) {
+                        this.modifyStateDiff(diff);
+                    }
+                }
+            }
+        }
+
+        if(asyncModifiers != null) {
+            AsyncState.pushActionModifiers(this, asyncModifiers, action);
+        }
     }
 
     private onSharedStateChanged(sharedStateComponent: Object, newState: Object, previous: Object) {

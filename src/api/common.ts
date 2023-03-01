@@ -1,9 +1,13 @@
 import { ComponentState } from "./state_tracking";
 
+export class StateActionBase {
+
+}
+
 export interface Constructor<T> { new(...args: any[]): T; }
 
-export interface AsyncContext<TState> {
-    (): ComponentState<TState>;
+export interface AsyncContext<TComponent> {
+    (): ComponentState<TComponent>;
 
     isCancelled: () => boolean;
 }

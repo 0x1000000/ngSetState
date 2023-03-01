@@ -4,7 +4,7 @@ import { Functions } from './../../impl/functions';
 
 export function WithSharedAsTarget<TComponent, TShared>(sharedType: Constructor<TShared>, ...propNames: (keyof ComponentState<TComponent>)[]) {
   return (target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
-      Functions.addSharedModifier(true, sharedType, target, propertyKey, descriptor, propNames);
+      Functions.addSharedModifier(true, sharedType, target, propertyKey, descriptor, propNames, undefined);
   }    
 }
 

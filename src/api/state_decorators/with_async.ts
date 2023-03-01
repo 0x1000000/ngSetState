@@ -1,6 +1,6 @@
-import { Constructor, AsyncContext } from './../../api/common';
+import { Constructor, AsyncContext, StateActionBase } from './../../api/common';
 import { ComponentState, ComponentStateDiff } from './../../api/state_tracking';
-import { AsyncData, AsyncModifier, ConComponent } from './../../impl/domain';
+import { ActionModifier, AsyncData, AsyncModifier, ConComponent } from './../../impl/domain';
 import { Functions } from './../../impl/functions';
 import { delayMs, cmpByPropsAll } from "../../impl/utils";
 import { AsyncState } from "../../impl/async_state";
@@ -18,12 +18,12 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
         finalizer: null
     };
 
-    let debounceMs: number | null = null;
+    let debounceMsRef: {value: number| null}  = {value: null};
 
     const result: IWithAsyncAndAllOptions<TComponent> = <any>
     ((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
 
-        if (debounceMs != null) {
+        if (debounceMsRef.value != null) {
 
             const debounceAsyncData: AsyncData = {
                 locks: null,
@@ -38,15 +38,64 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
             return Functions.addModifier(
                 target,
                 propertyKey,
-                { value: buildDebounceModifierFun<TComponent>(propNames, debounceMs, stateMeta.emitters, descriptor.value, asyncData) },
+                { value: buildDebounceModifierFun<TComponent>(propNames, debounceMsRef.value, stateMeta.emitters, descriptor.value, asyncData) },
                 propNames,
-                debounceAsyncData);
+                debounceAsyncData, undefined);
 
 
         }
 
-        return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData);
+        return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData, undefined);
     });
+
+    Object.assign(result, getAsyncDataBuilder(result, asyncData, debounceMsRef));
+
+    return result;
+}
+
+export function WithActionAsync<TComponent, TAction extends StateActionBase>(actionType: Constructor<TAction>): IWithAsyncAndAllOptions<TComponent>{
+
+    const asyncData: AsyncData = {
+        locks: [],
+        behaviorOnConcurrentLaunch: "putAfter",
+        behaviorOnError: "throw",
+        predicate: null,
+        finalizer: null
+    };
+
+    let debounceMsRef: {value: number| null}  = {value: null};
+
+    const result: IWithAsyncAndAllOptions<TComponent> = <any>
+    ((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
+
+        if (debounceMsRef.value != null) {
+
+            const debounceAsyncData: AsyncData = {
+                locks: null,
+                behaviorOnConcurrentLaunch: "replace",
+                behaviorOnError: "throw",
+                predicate: null,
+                finalizer: null
+            };
+
+            return Functions.addActionModifier(
+                target,
+                propertyKey,
+                { value: buildDebounceActionModifierFun<TComponent, TAction>(debounceMsRef.value, descriptor.value) },
+                actionType,
+                debounceAsyncData);
+
+        }
+
+        return Functions.addActionModifier(target, propertyKey, descriptor, actionType, asyncData);
+    });
+
+    Object.assign(result, getAsyncDataBuilder(result, asyncData, debounceMsRef));
+
+    return result;
+}
+
+function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TComponent>, asyncData: AsyncData, debounceMsRef: {value: number| null}): IWithAsyncAllOptions<TComponent> {
 
     const checks: Checks = { onConcurrent: false, locks: false, onError: false, if: false, finally: false };
 
@@ -62,7 +111,7 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
     const checkLocks = () => checkGeneric("locks", "Locks");
     const checkOnError = () => checkGeneric("onError", "OnError...");
 
-    const optional: IWithAsyncAllOptions<TComponent> = {
+    return {
         OnConcurrentLaunchCancel: () => {
             checkOnConcurrent();
             asyncData.behaviorOnConcurrentLaunch = "cancel";
@@ -105,13 +154,13 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
         },
         Debounce: (inDebounceMs: number) => {
 
-            if (debounceMs != null) {
+            if (debounceMsRef.value != null) {
                 throw new Error("function Debounce(...) has been called several times");
             }
             if(inDebounceMs == null || inDebounceMs <= 0){
                 throw new Error("Debounce time should be greater than zero");
             }
-            debounceMs = inDebounceMs;
+            debounceMsRef.value = inDebounceMs;
             return result;
         },
         If: (predicate: (currenTComponent: TComponent) => boolean) => {
@@ -124,11 +173,7 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
             asyncData.finalizer = method;
             return result;
         }
-    }
-
-    Object.assign(result, optional);
-
-    return result;
+    }    
 }
 
 type Checks = { onConcurrent: boolean, locks: boolean, onError: boolean, if: boolean, finally: boolean };
@@ -186,6 +231,22 @@ function buildDebounceModifierFun<TComponent>(propNames: (keyof S<TComponent>)[]
 
                 AsyncState.pushModifiers<any>(asyncContext.getComponent(), [fun], originalState, diff);
             }
+        }
+        return null;
+    }
+
+    return debounceModifierFun;
+}
+
+function buildDebounceActionModifierFun<TComponent, TAction extends StateActionBase>(debounceMs: number, fun: ActionModifier<TComponent, TAction>) {
+
+    async function debounceModifierFun(action: TAction, asyncContext: AsyncContext<TComponent>): Promise<SD<TComponent> | null> {
+
+        await delayMs(debounceMs);
+
+        if (!asyncContext.isCancelled()) {
+            const currentState = asyncContext();
+            return fun.apply(currentState, [action, currentState]);
         }
         return null;
     }

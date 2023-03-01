@@ -1,5 +1,5 @@
 import { IStateHolder } from './../api/i_with_state';
-import { Constructor, AsyncContext } from './../api/common';
+import { Constructor, AsyncContext, StateActionBase } from './../api/common';
 import { ComponentState, ComponentStateDiff } from './../api/state_tracking';
 
 export const STATE_META = "__state_meta__";
@@ -19,11 +19,13 @@ export interface PropMeta<TComponent> {
 export type SharedBindingRef = ((keyof any) | [(keyof any), number]);
 
 export interface StateMeta<TComponent> {
+    allDecoratedProperties: PropertyDescriptor[];
     inputs: PropMeta<TComponent>[];
     outputs: PropMeta<TComponent>[];
     emitters: (keyof S<TComponent>)[];
     emitterMaps: { [key: string]: keyof S<TComponent> };
     modifiers: { prop: (keyof S<TComponent>), fun: (Modifier<TComponent> | AsyncModifier<TComponent>)[] }[];
+    actionModifiers: { actionType: Constructor<StateActionBase>, fun: (ActionModifier<TComponent, StateActionBase>|AsyncActionModifier<TComponent, StateActionBase>)[] } [];
     sharedSourceMappers: { prop: (keyof any), sharedType: Constructor<any>, fun: Modifier<TComponent>[] }[];
     sharedTargetMappers: { prop: (keyof S<TComponent>), sharedType: Constructor<any>, fun: Modifier<any>[] }[];
     explicitStateProps: (keyof S<TComponent>)[];
@@ -33,11 +35,21 @@ export interface StateMeta<TComponent> {
 
 export interface Modifier<TComponent> {
     (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>): SD<TComponent>;
+    callOnInit?: boolean;
 }
 
 export interface AsyncModifier<TComponent> {
     (currentSate: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<SD<TComponent>> | null;    
 
+    asyncData: AsyncData;
+}
+
+export interface ActionModifier<TComponent, TAction> {
+    (action: TAction, currentSate: S<TComponent>): SD<TComponent> | null;    
+}
+
+export interface AsyncActionModifier<TComponent, TAction> {
+    (action: TAction, currentSate: AsyncContext<TComponent>): Promise<SD<TComponent>> | null;    
     asyncData: AsyncData;
 }
 
@@ -48,6 +60,11 @@ export interface ConComponent<TComponent> {
 export function isAsyncModifier<TState>(modifier: AsyncModifier<TState> | Modifier<TState>): modifier is AsyncModifier<TState> {
     return (<AsyncModifier<TState>>modifier).asyncData != null;
 }
+
+export function isAsyncActionModifier<T, TA>(modifier: AsyncActionModifier<T, TA> | ActionModifier<T, TA>): modifier is AsyncActionModifier<T, TA> {
+    return (<AsyncActionModifier<T, TA>>modifier).asyncData != null;
+}
+
 
 export type behaviorOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent";
 export type behaviorOnError = "throw" | "forget" | {callMethod: (currentState: any, error: any) => any};
@@ -61,11 +78,24 @@ export type AsyncData =
     finalizer: (() => any) | null;
 }
 
+export type AsyncModifierWithParameters<TComponent> = {
+    mod: AsyncModifier<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>
+};
+
+export type AsyncActionModifierWithParameters<TComponent, TAction> = {
+    mod: AsyncActionModifier<TComponent, TAction>, action: TAction
+};
+
+export type ModifierWithParameters<TComponent, TAction> = AsyncActionModifierWithParameters<TComponent, TAction> | AsyncModifierWithParameters<TComponent>;
+
+export function isAsyncActionModifierWithParameters<TComponent, TAction>(p: ModifierWithParameters<TComponent, TAction>): p is AsyncActionModifierWithParameters<TComponent, TAction> {
+    return (p as AsyncActionModifierWithParameters<TComponent, TAction>).action != null;
+}
+
 export type RunningModifier<TComponent> = {
     readonly id: number,
-    readonly modifier: AsyncModifier<TComponent>,
+    readonly modifier: ModifierWithParameters<TComponent, any>,
     readonly promise: Promise<void>;
-    readonly originalState: S<TComponent>;
-    readonly originalDiff: SD<TComponent>;
-    next: AsyncModifier<TComponent> | null;
+    readonly originalParameters: ModifierWithParameters<TComponent, any>;
+    next: ModifierWithParameters<TComponent, any> | null;
 }

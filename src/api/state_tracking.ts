@@ -1,4 +1,4 @@
-import { Constructor, EventEmitterLike, ObservableLike, SubjectLike } from './common';
+import { Constructor, EventEmitterLike, ObservableLike, StateActionBase, SubjectLike } from './common';
 import { Functions } from '../impl/functions';
 import { StateTrackerContext } from "../impl/state_tracking_context";
 
@@ -37,6 +37,7 @@ export type InitStateTrackingOptions<TComponent> = {
 }
 
 export interface IStateHandler<TComponent> {
+
     getState(): ComponentState<TComponent>;
 
     modifyStateDiff(diff: ComponentStateDiff<TComponent>);
@@ -44,6 +45,8 @@ export interface IStateHandler<TComponent> {
     subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
 
     whenAll(): Promise<any>;
+
+    execAction<TAction extends StateActionBase>(action: TAction);
 
     release();
 }

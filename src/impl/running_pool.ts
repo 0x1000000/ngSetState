@@ -1,19 +1,18 @@
-import { ComponentState, ComponentStateDiff } from './../api/state_tracking';
-import { RunningModifier, AsyncModifier } from './domain';
+import { RunningModifier, ModifierWithParameters } from './domain';
 
 export class RunningPool<TComponent> {
 
     private readonly _storage: RunningModifier<TComponent>[] = [];
 
-    private readonly _lockQueue: AsyncModifier<TComponent>[] = [];
+    private readonly _lockQueue: ModifierWithParameters<TComponent, any>[] = [];
 
     private _counter: number = 0;
 
-    public nextOrCurrentId(modifier: AsyncModifier<TComponent>): [number, number|null] | null {
+    public nextOrCurrentId(modifier: ModifierWithParameters<TComponent, any>): [number, number|null] | null {
 
         const running = this.getByModifierId(modifier);
 
-        const behavior = modifier.asyncData.behaviorOnConcurrentLaunch;
+        const behavior = modifier.mod.asyncData.behaviorOnConcurrentLaunch;
 
         let oldId: number|null = null;
 
@@ -45,15 +44,13 @@ export class RunningPool<TComponent> {
         return [id, oldId];
     }
 
-    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifier: AsyncModifier<TComponent>, oldId: number | null, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>) {
+    public addNewAndDeleteOld(id: number, promise: Promise<void>, modifierWithParameters: ModifierWithParameters<TComponent, any>, oldId: number | null) {
 
-        let originalState = previousState;
-        let originalDiff = diff;
+        let originalParameters = modifierWithParameters;
         if (oldId != null) {
             const oldRunningItem = this.getById(oldId);
             //A task can be replaced by another one that is why the original state is required
-            originalState = oldRunningItem.originalState;
-            originalDiff = oldRunningItem.originalDiff;
+            originalParameters = oldRunningItem.modifier;
             const pending = this.deleteByIdAndGetPendingModifier(oldId);
             if (pending != null) {
                 throw new Error("Replaced modifier cannot have a pending one");
@@ -61,11 +58,10 @@ export class RunningPool<TComponent> {
         }
         const newItem: RunningModifier<TComponent> = {
             id: id,
-            modifier: modifier,
+            modifier: modifierWithParameters,
             promise: promise,
             next: null,
-            originalState: originalState,
-            originalDiff: originalDiff
+            originalParameters: originalParameters
         };
 
         this._storage.push(newItem);
@@ -89,9 +85,9 @@ export class RunningPool<TComponent> {
         throw new Error("Could not find a running task by its id");
     }
 
-    public deleteByIdAndGetPendingModifier(id: number): AsyncModifier<TComponent> | null {
+    public deleteByIdAndGetPendingModifier(id: number): ModifierWithParameters<TComponent, any> | null {
 
-        let result: AsyncModifier<TComponent> | null = null;
+        let result: ModifierWithParameters<TComponent, any> | null = null;
 
         const index = this._storage.findIndex(i => i.id === id);
         if (index >= 0) {
@@ -110,19 +106,19 @@ export class RunningPool<TComponent> {
         return this._storage.map(i => i.promise);
     }
 
-    private getByModifierId(modifier: AsyncModifier<TComponent>): RunningModifier<TComponent> | null {
-        const index = this._storage.findIndex(i => i.modifier === modifier);
+    private getByModifierId(modifier: ModifierWithParameters<TComponent, any>): RunningModifier<TComponent> | null {
+        const index = this._storage.findIndex(i => i.modifier.mod === modifier.mod);
         return index < 0 ? null : this._storage[index];
     }
 
-    private putIntoLockQueue(modifier: AsyncModifier<TComponent>): boolean {
-        const targetLocks = modifier.asyncData.locks;
+    private putIntoLockQueue(modifier: ModifierWithParameters<TComponent, any>): boolean {
+        const targetLocks = modifier.mod.asyncData.locks;
         if (targetLocks == null || targetLocks.length < 1) {
             return false;
         }
 
         for (const ri of this._storage) {
-            if (ri.modifier.asyncData.locks != null && ri.modifier.asyncData.locks.length > 0) {
+            if (ri.modifier.mod.asyncData.locks != null && ri.modifier.mod.asyncData.locks.length > 0) {
                 if (RunningPool.locksIntersect(ri.modifier, modifier)) {
                     this._lockQueue.push(modifier);
                     return true;
@@ -132,7 +128,7 @@ export class RunningPool<TComponent> {
         return false;
     }
 
-    private extractFromLockQueue(): AsyncModifier<TComponent> | null {
+    private extractFromLockQueue(): ModifierWithParameters<TComponent, any> | null {
         if (this._lockQueue.length < 1) {
             return null;
         }
@@ -140,7 +136,7 @@ export class RunningPool<TComponent> {
         if (this._storage.length > 0) {
             index = this._lockQueue.findIndex(lq => !this._storage.some(s => RunningPool.locksIntersect(s.modifier, lq)));
         }
-        let res: AsyncModifier<TComponent> | null = null;
+        let res: ModifierWithParameters<TComponent, any> | null = null;
         if (index >= 0) {
             res = this._lockQueue[index];
             this._lockQueue.splice(index, 1);
@@ -148,9 +144,9 @@ export class RunningPool<TComponent> {
         return res;
     }
 
-    private static locksIntersect<TComponent>(x: AsyncModifier<TComponent>, y: AsyncModifier<TComponent>): boolean {
-        const xL = x.asyncData.locks;
-        const yL = y.asyncData.locks;
+    private static locksIntersect<TComponent>(x: ModifierWithParameters<TComponent, any>, y: ModifierWithParameters<TComponent, any>): boolean {
+        const xL = x.mod.asyncData.locks;
+        const yL = y.mod.asyncData.locks;
 
         if (xL == null || xL.length < 1 || yL == null || yL.length < 1) {
             return false;

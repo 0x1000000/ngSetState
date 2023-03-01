@@ -1,17 +1,19 @@
-import { Constructor, Constructor as IConstructor } from './../api/common';
-import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData} from './domain';
+import { Constructor, Constructor as IConstructor, StateActionBase } from './../api/common';
+import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData, ActionModifier, AsyncActionModifier} from './domain';
 import { checkPromise, cmpByProp } from './utils';
 import { ComponentState, ComponentStateDiff, initializeStateTracking, InitStateTrackingOptions } from './../api/state_tracking';
 import { IWithState } from './../api/i_with_state';
 
 export class Functions {
 
-    public static addSharedModifier<TComponent>(toShared: boolean, sharedType: Constructor<any>, target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof any)[]) {
+    public static addSharedModifier<TComponent>(toShared: boolean, sharedType: Constructor<any>, target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof any)[], callOnInit: boolean | undefined) {
         if (sharedType == null) {
             throw new Error(`Shared type should be specified for '${propertyKey}' in. Make sure it is defined before it is used`);
         }
         const stateMeta = Functions.ensureStateMeta(target);
+        Functions.ensureModifierDecoratedOnce(stateMeta, descriptor, propertyKey);
         let modifier: Modifier<any> = descriptor.value;
+        modifier.callOnInit = callOnInit;
 
         const array = toShared ? stateMeta.sharedTargetMappers : stateMeta.sharedSourceMappers;
     
@@ -33,8 +35,35 @@ export class Functions {
         }    
     }
   
-    public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null) {
+    public static addActionModifier<TComponent, TAction extends StateActionBase>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, actionType: Constructor<TAction>, asyncData: AsyncData | null) {
         const stateMeta = Functions.ensureStateMeta(target);
+        Functions.ensureModifierDecoratedOnce(stateMeta, descriptor, propertyKey);
+        let modifier: ActionModifier<TComponent, TAction> | AsyncActionModifier<TComponent, TAction> = descriptor.value;
+    
+        if (asyncData) {
+            const original = modifier;
+            modifier = function (...args: any[]) {
+                return original.apply(this, args);
+            };
+            (<AsyncActionModifier<TComponent, TAction>><any>modifier).asyncData = asyncData;
+        }
+
+        let t = stateMeta.actionModifiers.find(x => x.actionType === actionType);
+        if (t == null) {
+            t = {actionType, fun: []};
+            stateMeta.actionModifiers.push(t);
+        }
+
+        if(t.fun.indexOf(modifier) < 0) {
+            t.fun.push(modifier);
+        } else {
+            throw new Error(`Modifier with name '${propertyKey}' has been already declared`);
+        }
+    }
+
+    public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null, callOnInit: boolean | undefined) {
+        const stateMeta = Functions.ensureStateMeta(target);
+        Functions.ensureModifierDecoratedOnce(stateMeta, descriptor, propertyKey);
         let modifier: Modifier<TComponent> | AsyncModifier<TComponent> = descriptor.value;
     
         if (asyncData) {
@@ -43,6 +72,8 @@ export class Functions {
                 return original.apply(this, args);
             };
             (<AsyncModifier<TComponent>><any>modifier).asyncData = asyncData;
+        } else {
+            (<Modifier<TComponent>>modifier).callOnInit = callOnInit;
         }
     
         for (const propName of propNames) {
@@ -62,7 +93,16 @@ export class Functions {
                 stateMeta.modifiers.push({ prop: propName, fun: [modifier] });
             }
         }
-    }    
+    }
+
+    private static ensureModifierDecoratedOnce(stateMeta: StateMeta<any>, descriptor: PropertyDescriptor, propertyKey: string) {
+        if (stateMeta.allDecoratedProperties.some(pd => pd === descriptor)) {
+
+            throw new Error(`Property '${propertyKey}' can be decorated just with one decorator`);
+        }
+        stateMeta.allDecoratedProperties.push(descriptor);
+    }
+
 
     public static updateCycle<TComponent>(stateMeta: StateMeta<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, freeze: boolean)
         : { newState: ComponentState<TComponent>, asyncModifiers: AsyncModifier<TComponent>[] | null, emitterProps: (keyof ComponentState<TComponent>)[] | null }
@@ -186,15 +226,17 @@ export class Functions {
         }
 
         const stateMeta: StateMeta<TComponent> = {
+            allDecoratedProperties: [],
             inputs: [],
             outputs: [],
             emitters: [],
             emitterMaps: {},
             modifiers: [],
+            actionModifiers: [],
             explicitStateProps: [],
             sharedBindings: {},
             sharedSourceMappers: [],
-            sharedTargetMappers: [],
+            sharedTargetMappers: [],            
             asyncInit: null
         };
 

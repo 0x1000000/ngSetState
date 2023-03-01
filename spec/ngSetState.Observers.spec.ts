@@ -4,7 +4,6 @@ import { BindToShared, ComponentState, ComponentStateDiff, Emitter, IncludeInSta
 import { delayMs, EventEmitter } from "./helpers";
 
 describe('Observers...', () => {
-
     it ('Emitter basic test', async () => {
 
         @StateTracking({immediateEvaluation: true, includeAllPredefinedFields: true})
@@ -340,7 +339,7 @@ describe('Observers...', () => {
                 releaseStateTracking(this);
             }
         
-            @WithSharedAsSource(SharedObservables1, 'result')
+            @WithSharedAsSource(SharedObservables1, 'result').CallOnInit()
             static produceResult(s: WithSharedAsSourceArg<SharedObservablesClient, SharedObservables1>): ComponentStateDiff<SharedObservablesClient> {
                 return {
                     resultSrv1Plus2Mul2: (s.currentSharedState.result ?? 0) + 2
@@ -374,6 +373,8 @@ describe('Observers...', () => {
  
         const component = new SharedObservablesClient(service, service2);
 
+        expect(component.resultSrv1Plus2Mul2).toBe(2);
+
         service.arg1.next(1);
         let service1Result: number = -1;
         service.result.subscribe(r => service1Result = r);
@@ -392,7 +393,7 @@ describe('Observers...', () => {
         expect(component.resultSrv2).toBe(30);
     });
 
-    fit('WithSharedAsTarget', async () => {
+    it('WithSharedAsTarget', async () => {
 
         class Service1 {
             result = new Subject<number>();
