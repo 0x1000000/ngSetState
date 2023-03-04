@@ -3,7 +3,8 @@ import { AsyncActionModifier, AsyncModifier, ASYNC_STATE, ConComponent, isAsyncA
 import { checkPromise } from './utils';
 import { AsyncContext } from "../api/common";
 import { IStateHolder } from "./../api/i_with_state";
-import { ComponentState, ComponentStateDiff } from "./../api/state_tracking";
+import { ComponentState, ComponentStateDiff, StateDiff } from "./../api/state_tracking";
+import { Functions } from "./functions";
 
 export class AsyncState<TComponent> {
 
@@ -96,7 +97,7 @@ export class AsyncState<TComponent> {
                 if (!checkPromise(res)) {
                     throw new Error("Async modifier should return a promise");
                 }
-                let asyncDiff: ComponentStateDiff<TComponent> = null;
+                let asyncDiff: StateDiff<TComponent> = null;
 
                 try {
                     //Running async modifier
@@ -122,7 +123,7 @@ export class AsyncState<TComponent> {
                     if (effectiveParameters.mod.asyncData.finalizer != null) {
                         const finalDiff = effectiveParameters.mod.asyncData.finalizer();
                         if (finalDiff != null) {
-                            asyncDiff = asyncDiff == null ? finalDiff : Object.assign(asyncDiff, finalDiff);
+                            asyncDiff = asyncDiff == null ? finalDiff : Functions.accStateDiff(asyncDiff, finalDiff);
                         }
                     }
                     if (asyncDiff != null) {

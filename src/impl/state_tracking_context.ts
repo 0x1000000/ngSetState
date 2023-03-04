@@ -3,7 +3,7 @@ import { AsyncState } from '../impl/async_state';
 import { StateMeta, Modifier, isAsyncModifier, isAsyncActionModifier, AsyncActionModifier, ActionModifier } from './domain';
 import { EMITTER_SUFFIX } from './domain';
 import { cmpByProp, cmp, checkIsEventEmitterLike, checkIsObservableLike, checkIsSubjectLike } from './utils';
-import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler } from '../api/state_tracking';
+import { StateTrackingOptions, ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, IStateHandler, StateDiff } from '../api/state_tracking';
 import { EventEmitterLike, SubscriptionLike, SubjectLike, ObservableLike, StateActionBase } from './../api/common';
 import { IStateHolder } from './../api/i_with_state';
 import { WithSharedAsSourceArg } from './../api/state_decorators/with_shared_as_source';
@@ -85,7 +85,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private _callbackIsScheduled: boolean = false;
 
-    private _changesBuffer: ComponentStateDiff<TComponent> | null;
+    private _changesBuffer: StateDiff<TComponent> | null;
 
     private _subscription: ISharedStateChangeSubscription | null = null;
 
@@ -212,7 +212,16 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 const subscription = o.subscribe(v => {
                     const newState = {};
                     newState[key] = v;
-                    this.modifyStateDiff(newState);
+
+                    if (!this._options.immediateEvaluation) {
+                        if (this._changesBuffer == null) {
+                            this._changesBuffer = {};
+                        }
+                        this._changesBuffer = Functions.accStateDiff(this._changesBuffer, newState);
+                        this.scheduleNotImmediateCallback();
+                    } else {
+                        this.modifyStateDiff(newState);    
+                    }
                 });
                 this._observableSubscriptions.push(subscription);                        
             }
@@ -231,7 +240,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 modifyStateDiff: (diff) => context.modifyStateDiff(diff),
                 subscribeSharedStateChange: () => context.subscribeSharedStateChange(),
                 whenAll: () => context.whenAll(),
-                execAction: (a) => context.execAction(a),
+                execAction: (a) => context.execActions(a),
                 release: () => context.release()
             }
         }
@@ -373,10 +382,6 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 const sharedCompAndProp: [Object, keyof any] = this._sharedComponentPropBindingMap[p];
                 if (sharedCompAndProp != null) {
                     const [sharedComponent, sharedProp] = sharedCompAndProp;
-                    /*const desc = Object.getOwnPropertyDescriptor(sharedComponent, sharedProp);
-                    if (desc != null && desc.set != null && !cmpByProp(previousState, newState, p)) {
-                        desc.set.call(sharedComponent, newState[p]);
-                    } else */
                     pushToAcc(sharedComponent, sharedProp, newState[p]);
                 }
             }
@@ -419,7 +424,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
         if(sharedStateChangeAcc != null) {
             for (const {sharedComponent, diff} of sharedStateChangeAcc) {
-                const sharedHandler: IStateHandler<any> = sharedComponent[StateTrackerContext.contextRefPropertyId]?.getHandler();
+                const sharedHandler = StateTrackerContext.tryGetStateHandler<any>(sharedComponent);
                 if (sharedHandler == null) {
                     throw new Error('Shared component should be initialized with state tracking')
                 }
@@ -476,86 +481,113 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }
     }
 
-    public modifyStateDiff(diff: ComponentStateDiff<TComponent>): boolean {
-        if (diff == null) {
+    public modifyStateDiff(stateDiff: StateDiff<TComponent>, externalActionsAcc?: StateActionBase[]): boolean {
+        if (stateDiff == null) {
             return false;
         }
-        StateTrackerContext.notifyQueue.initUpdating();
-        try {
-            let previousState = this.state;
 
-            const { newState, asyncModifiers, emitterProps: alwaysEmittedProps } =
-                Functions.updateCycle(this._stateMeta, previousState, diff, true);
+        let result = false;
 
-            this.state = newState;
+        let [diff, actions] = Functions.breakSateDiff(stateDiff);
 
-            const result = this.state !== previousState;
-
-            //Add missing getters and setters if a prop returned by a modifier
-            const newStateKeys: any[] = Object.keys(newState) as (keyof any)[];
-            for (const p of newStateKeys) {
-                if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
-                    if (!checkIsEventEmitterLike(this._component[p]) && !checkIsObservableLike(this._component[p])) {
-                        this.replaceMember(p, false);
-                    }
-                }
-            }
-
-            this.updateSharedComponentsAfterThisStateChange(newState, previousState, newStateKeys);
-
-            //Emit outputs
-            if (result || alwaysEmittedProps != null) {
-                for (const emitterProp of Object.keys(this._emittersDict)) {
-                    const se = this._emittersDict[emitterProp];
-                    let checkAlwaysEmittedProps = true;
-                    if (result) {
-                        if (!cmpByProp(newState, previousState, emitterProp as any)) {
-                            if(checkIsSubjectLike(se)) {
-                                se.next(newState[emitterProp]);
-                            } else {
-                                se.emit(newState[emitterProp]);
-                            }                            
-                            checkAlwaysEmittedProps = false;
-                        }
-                    }
-
-                    if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
-                        if (alwaysEmittedProps.indexOf(emitterProp as any) >= 0) {
-                            if(checkIsSubjectLike(se)) {
-                                se.next(newState[emitterProp]);
-                            } else {
-                                se.emit(newState[emitterProp]);
-                            }                            
-                        }
-                    }
-                }
-            }
-
-            if (asyncModifiers && asyncModifiers.length > 0) {
-                AsyncState.pushModifiers(this, asyncModifiers, previousState, diff);
-            }
-
-            if (this._subscribers.length > 0 && result) {
-                for (const subscriber of this._subscribers) {
-                    subscriber.onStateChange(this._component, this.state, previousState);
-                }
-            }
-
-            if (result && this._options.onStateApplied != null) {
-                //onStateApplied might lead to further state modification, so the call should be pushed out of the update cycle
-                StateTrackerContext.notifyQueue.add(
-                    this._component,
-                    () => this._options.onStateApplied?.call(
-                        this._component,
-                        this._component,
-                        this.state,
-                        previousState));
-            }
-
-            return result;
-        } finally {
-            StateTrackerContext.notifyQueue.releaseUpdating();
+        if(externalActionsAcc != null && actions.length > 0) {
+            externalActionsAcc.push(...actions);
+            actions = externalActionsAcc;
         }
+
+        try {
+            if (diff != null) {
+                StateTrackerContext.notifyQueue.initUpdating();
+                try {
+
+                    let previousState = this.state;
+
+                    const { newState, asyncModifiers, emitterProps: alwaysEmittedProps, actions: cycleActions } =
+                        Functions.updateCycle(this._stateMeta, previousState, diff, true);
+
+                    if(cycleActions != null) {
+                        actions.push(...cycleActions);
+                    }
+
+                    this.state = newState;
+
+                    result = this.state !== previousState;
+
+                    //Add missing getters and setters if a prop returned by a modifier
+                    const newStateKeys: any[] = Object.keys(newState) as (keyof any)[];
+                    for (const p of newStateKeys) {
+                        if (Object.getOwnPropertyDescriptor(this._component, p)?.get == null) {
+                            if (!checkIsEventEmitterLike(this._component[p]) && !checkIsObservableLike(this._component[p])) {
+                                this.replaceMember(p, false);
+                            }
+                        }
+                    }
+
+                    this.updateSharedComponentsAfterThisStateChange(newState, previousState, newStateKeys);
+
+                    //Emit outputs
+                    if (result || alwaysEmittedProps != null) {
+                        for (const emitterProp of Object.keys(this._emittersDict)) {
+                            const se = this._emittersDict[emitterProp];
+                            let checkAlwaysEmittedProps = true;
+                            if (result) {
+                                if (!cmpByProp(newState, previousState, emitterProp as any)) {
+                                    if(checkIsSubjectLike(se)) {
+                                        se.next(newState[emitterProp]);
+                                    } else {
+                                        se.emit(newState[emitterProp]);
+                                    }                            
+                                    checkAlwaysEmittedProps = false;
+                                }
+                            }
+
+                            if (alwaysEmittedProps != null && checkAlwaysEmittedProps) {
+                                if (alwaysEmittedProps.indexOf(emitterProp as any) >= 0) {
+                                    if(checkIsSubjectLike(se)) {
+                                        se.next(newState[emitterProp]);
+                                    } else {
+                                        se.emit(newState[emitterProp]);
+                                    }                            
+                                }
+                            }
+                        }
+                    }
+
+                    if (asyncModifiers && asyncModifiers.length > 0) {
+                        AsyncState.pushModifiers(this, asyncModifiers, previousState, diff);
+                    }
+
+                    if (this._subscribers.length > 0 && result) {
+                        for (const subscriber of this._subscribers) {
+                            subscriber.onStateChange(this._component, this.state, previousState);
+                        }
+                    }
+
+                    if (result && this._options.onStateApplied != null) {
+                        //onStateApplied might lead to further state modification, so the call should be pushed out of the update cycle
+                        StateTrackerContext.notifyQueue.add(
+                            this._component,
+                            () => this._options.onStateApplied?.call(
+                                this._component,
+                                this._component,
+                                this.state,
+                                previousState));
+                    }
+
+                }
+                finally {
+                    StateTrackerContext.notifyQueue.releaseUpdating();
+                }
+            }
+            if (externalActionsAcc == null && actions.length > 0) {
+                this.execActions(actions);
+            }
+        } catch (e) {
+            if(!this._options?.errorHandler?.apply(null, [e])) {
+                throw e;
+            }            
+        }
+        return result;
     }
 
     public getState(): ComponentState<TComponent> {
@@ -571,8 +603,15 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             prop,
             {
                 get: () => {
-                    if (!this._options.immediateEvaluation && this._changesBuffer != null && (this._changesBuffer as Object).hasOwnProperty(prop)) {
-                        return this._changesBuffer[prop];
+                    let buffer: ComponentStateDiff<TComponent>|null = null;
+                    if(!this._options.immediateEvaluation && this._changesBuffer != null) {
+                        const [currentStateDiff] = Functions.breakSateDiff(this._changesBuffer);
+                        if(currentStateDiff != null && (currentStateDiff as Object).hasOwnProperty(prop)) {
+                            buffer = currentStateDiff;
+                        }
+                    }
+                    if (buffer != null) {
+                        return buffer[prop];
                     }
                     return this.state[prop];
                 },
@@ -676,15 +715,15 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
     }
 
     private componentPropertySetter(prop: PropertyKey, value: any) {
-        if (this._options.immediateEvaluation) {
-            const diff = {};
-            diff[prop] = value;
+        const diff = {};
+        diff[prop] = value;
+    if (this._options.immediateEvaluation) {
             this.modifyStateDiff(diff);
         } else {
             if (this._changesBuffer == null) {
                 this._changesBuffer = {};
             }
-            this._changesBuffer[prop] = value;
+            this._changesBuffer = Functions.accStateDiff(this._changesBuffer, diff);
             this.scheduleNotImmediateCallback();
         }
     }
@@ -749,39 +788,75 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         return AsyncState.whenAll(this);
     }
 
-    private execAction<TAction extends StateActionBase>(action: TAction) {
+    private execActions(actionIn: StateActionBase|StateActionBase[]): boolean {
+        const actions = this.ensureArray(actionIn);
+        const sharedComponents = this.ensureNullArray(this._sharedComponents);
+        let result = false;
 
-        const modifiers = this._stateMeta.actionModifiers.filter(x => action instanceof x.actionType);
-        if(modifiers.length < 1) {
-            throw new Error(`Action '${typeof action}' is not registered`);
-        }
+        let currentActions = actions;
 
-        let asyncModifiers: AsyncActionModifier<TComponent, TAction>[] | undefined;
+        let watchDog = 0;
+        while(currentActions != null && currentActions.length > 0) {
+            watchDog++;
+            if (watchDog > 10000) {
+                throw new Error('Too many action cycles');
+            }
 
-        for(const m of modifiers) {
-            for(const fun of m.fun) {
-                const f:(AsyncActionModifier<TComponent, TAction> | ActionModifier<TComponent, TAction>) = fun;
+            currentActions = StateTrackerContext.removeTypeDuplicatesReverse(currentActions);
 
-                if(isAsyncActionModifier<TComponent, TAction>(f)) {
+            const nextActions: StateActionBase[] = [];
+            for(const action of currentActions) {
 
-                    if(asyncModifiers == null) {
-                        asyncModifiers = [];                    
+                if(!(action instanceof StateActionBase)) {
+                    throw new Error(`Action '${typeof action}' is not registered`);
+                }
+
+                const modifiers = this._stateMeta.actionModifiers.filter(x => action instanceof x.actionType);
+                if(modifiers.length > 0) {
+
+                    result = true;
+
+                    let asyncModifiers: AsyncActionModifier<TComponent, StateActionBase>[] | undefined;
+
+                    for(const m of modifiers) {
+                        for(const fun of m.fun) {
+                            const f:(AsyncActionModifier<TComponent, StateActionBase> | ActionModifier<TComponent, StateActionBase>) = fun;
+
+                            if(isAsyncActionModifier<TComponent, StateActionBase>(f)) {
+
+                                if(asyncModifiers == null) {
+                                    asyncModifiers = [];                    
+                                }
+
+                                asyncModifiers.push(f);
+                                
+                            } else {
+                                const diff = f(action, this.state);
+                                if (diff != null) {
+                                    this.modifyStateDiff(diff, nextActions);
+                                }
+                            }
+                        }
                     }
 
-                    asyncModifiers.push(f);
-                    
-                } else {
-                    const diff = f(action, this.state);
-                    if (diff != null) {
-                        this.modifyStateDiff(diff);
+                    if(asyncModifiers != null) {
+                        AsyncState.pushActionModifiers(this, asyncModifiers, action);
                     }
                 }
+
+                if (sharedComponents != null) {
+                    for (const sc of sharedComponents) {
+                        if (StateTrackerContext.tryGetStateHandler(sc)?.execAction(action)) {
+                            result = true;
+                        }
+                    }
+                }   
             }
+
+            currentActions = nextActions;
         }
 
-        if(asyncModifiers != null) {
-            AsyncState.pushActionModifiers(this, asyncModifiers, action);
-        }
+        return result;
     }
 
     private onSharedStateChanged(sharedStateComponent: Object, newState: Object, previous: Object) {
@@ -867,7 +942,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             onStateApplied: options?.onStateApplied ?? null,
             getInitialState: options?.getInitialState ?? null,
             setHandler: options?.setHandler ?? null,
-            getSharedStateTracker: options?.getSharedStateTracker ?? null
+            getSharedStateTracker: options?.getSharedStateTracker ?? null,
+            errorHandler: options?.errorHandler ?? null
         };
 
         return res;
@@ -879,5 +955,37 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
     private ensureArray<T>(obj: T | T[]): T[] {
         return Array.isArray(obj) ? obj : [obj];
+    }
+
+    private ensureNullArray<T>(obj?: T | T[]): T[] | null {
+        if (obj == null) {
+            return null;
+        }
+        return Array.isArray(obj) ? obj : [obj];
+    }
+
+    static removeTypeDuplicatesReverse<T>(arr: T[]) {
+
+        if(arr == null || arr.length < 2) {
+            return arr;
+        }
+
+        let result = arr;
+
+        const watch = new Set<Function>();
+
+        for(let i = arr.length-1; i >= 0; i --) {
+            const t = arr[i];
+            if(t == null || typeof t !== 'object' || watch.has(t.constructor)) {
+                if(result === arr) {
+                    result = [...arr];
+                }
+                result.splice(i, 1);
+            } else {
+              watch.add(t.constructor)
+            }
+        }
+
+        return result;
     }
 }

@@ -1,7 +1,9 @@
 import { } from "jasmine";
+import { Subject } from "rxjs";
 import { ComponentState, ComponentStateDiff, IncludeInState, initializeImmediateStateTracking, IStateHandler, With, WithActionAsync } from "../src";
 import { AsyncContext, StateActionBase } from "../src/api/common";
 import { WithAction } from "../src/api/state_decorators/with";
+import { initializeStateTracking, StateDiff } from "../src/api/state_tracking";
 import { delayMs } from "./helpers";
 
 describe('Actions...', () => {
@@ -132,7 +134,7 @@ describe('Actions...', () => {
             }
 
             @WithActionAsync(ActionC).OnConcurrentLaunchReplace()
-            static async setValueC(a: ActionC, s: AsyncContext<State>): Promise<ComponentStateDiff<State>> {
+            static async setValueC(a: ActionC, s: AsyncContext<State>): Promise<StateDiff<State>> {
                 await delayMs(100);
 
                 if(s.isCancelled()){
@@ -173,4 +175,255 @@ describe('Actions...', () => {
         expect(canceledCanceledCounter).toBe(0);
         expect(replaceCanceledCounter).toBe(2);
     });    
+
+
+    it ('Chain test', async () => {
+        class ActionA extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class ActionB extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class ActionC extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class Component {
+            
+            readonly handler: IStateHandler<Component>;
+
+            constructor() {
+                this.handler = initializeImmediateStateTracking<Component>(this);
+            }
+
+            counter: number = 0;
+
+            @WithAction(ActionA)
+            static actionA(a: ActionA, s: ComponentState<Component>): StateDiff<Component> {
+                return [{
+                    counter: s.counter + a.value
+                }, new ActionB(2), new ActionC(3)];
+            }
+
+            @WithAction(ActionB)
+            static actionB(a: ActionB, s: ComponentState<Component>): StateDiff<Component> {
+                return [{
+                    counter: s.counter + a.value
+                }, new ActionC(10)];
+            }
+
+            @WithAction(ActionC)
+            static actionC(a: ActionC, s: ComponentState<Component>): StateDiff<Component> {
+                return [{
+                    counter: s.counter + a.value
+                }];
+            }
+
+            @WithActionAsync(ActionC)
+            static async actionCa(a: ActionC, s: AsyncContext<Component>): Promise<StateDiff<Component>> {
+                await delayMs(10);
+
+                const counter = s().counter;
+                return [{
+                    counter: -50 + counter
+                }];
+            }
+        }
+
+
+        const c = new Component();
+
+        c.handler.execAction(new ActionA(1));
+
+        expect(c.counter).toBe(16);
+
+        await c.handler.whenAll();
+
+        expect(c.counter).toBe(-84);
+    });
+
+    it ('Shared test', async () => {
+        class ActionA extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class ActionB extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class Service {
+
+            serviceValue: number = 0;
+
+            constructor() {
+                initializeImmediateStateTracking<Service>(this);
+            }
+
+            @WithAction(ActionA)
+            static onActionA(a: ActionA, s: ComponentState<Service>): StateDiff<Service> {
+                return {
+                    serviceValue: s.serviceValue + a.value
+                }
+            }
+
+            @WithAction(ActionB)
+            static onActionB(a: ActionA, s: ComponentState<Service>): StateDiff<Service> {
+                return {
+                    serviceValue: s.serviceValue + a.value
+                }
+            }
+        }
+
+        class Component {
+            
+            readonly handler: IStateHandler<Component>;
+
+            constructor(service: Service) {
+                this.handler = initializeImmediateStateTracking<Component>(this, {sharedStateTracker: service});
+            }
+
+            readonly componentValue = new Subject<number>();
+
+            @With('componentValue')
+            static withValue(s: ComponentState<Component>): StateDiff<Component> {
+                return [new ActionA(s.componentValue ?? 0), new ActionB((s.componentValue ?? 0)/2)];
+            }
+        }
+
+
+        const service = new Service();
+        const component1 = new Component(service);
+        const component2 = new Component(service);
+
+        component1.componentValue.next(10);
+        component2.componentValue.next(20);
+
+        expect(service.serviceValue).toBe(45);
+
+        component1.handler.release();
+        component2.handler.release();
+    });    
+
+    it ('Shared test not immediate', async () => {
+        class ActionA extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class ActionB extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class Service {
+
+            serviceValue: number = 0;
+
+            constructor() {
+                initializeStateTracking<Service>(this, {includeAllPredefinedFields: true});
+            }
+
+            @WithAction(ActionA)
+            static onActionA(a: ActionA, s: ComponentState<Service>): StateDiff<Service> {
+                return {
+                    serviceValue: s.serviceValue + a.value
+                }
+            }
+
+            @WithAction(ActionB)
+            static onActionB(a: ActionA, s: ComponentState<Service>): StateDiff<Service> {
+                return {
+                    serviceValue: s.serviceValue + a.value
+                }
+            }
+        }
+
+        class Component {
+            
+            readonly handler: IStateHandler<Component>;
+
+            constructor(service: Service) {
+                this.handler = initializeStateTracking<Component>(this, {sharedStateTracker: service, includeAllPredefinedFields: true});
+            }
+
+            readonly componentValue = new Subject<number>();
+
+            @With('componentValue')
+            static withValue(s: ComponentState<Component>): StateDiff<Component> {
+                return [new ActionA(s.componentValue ?? 0), new ActionB((s.componentValue ?? 0)/2)];
+            }
+        }
+
+
+        const service = new Service();
+        const component1 = new Component(service);
+        const component2 = new Component(service);
+
+        component1.componentValue.next(10);
+        component2.componentValue.next(20);
+
+        expect(service.serviceValue).toBe(0);
+
+        await delayMs(10);
+
+        expect(service.serviceValue).toBe(45);
+
+        component1.handler.release();
+        component2.handler.release();
+    });    
+
+    it ('Infinite loop brake', async () => {
+        class ActionA extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
+        class Component {
+            
+            readonly handler: IStateHandler<Component>;
+
+            err: any;
+
+            constructor() {
+                this.handler = initializeImmediateStateTracking<Component>(this, {errorHandler: (e)=> {
+                    this.err = e;
+                    return true;
+                }});
+            }
+
+            readonly componentValue = new Subject<number>();
+
+            @With('componentValue')
+            static withValue(s: ComponentState<Component>): StateDiff<Component> {
+                return [new ActionA(s.componentValue ?? 0)];
+            }
+
+            @WithAction(ActionA)
+            static withActionA(s: ComponentState<Component>): StateDiff<Component> {
+                return [new ActionA(s.componentValue ?? 0)];
+            }
+        }
+
+        const component1 = new Component();
+
+        component1.componentValue.next(10);
+
+        expect(component1.err).toBeTruthy();
+    });    
+
 });

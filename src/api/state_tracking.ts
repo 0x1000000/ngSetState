@@ -18,6 +18,9 @@ type UnwrapObservables<T> = { [K in keyof T]: T[K] extends ObservableLike<infer 
 
 export type ComponentState<T> = Readonly<UnwrapObservables<PropOnly<T>>>;
 export type ComponentStateDiff<T> = Partial<UnwrapObservables<NoPureObservables<T>>> | null;
+export type StateDiff<T> = ComponentStateDiff<T> 
+    | [NonNullable<ComponentStateDiff<T>>, StateActionBase,...StateActionBase[]]
+    | [StateActionBase,...StateActionBase[]];
 
 export type StateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
@@ -26,6 +29,7 @@ export type StateTrackingOptions<TComponent> = {
     getInitialState?: ((component: TComponent) => ComponentStateDiff<TComponent> | null) | null,
     setHandler?: ((component: TComponent, handler: IStateHandler<TComponent>) => void) | null,
     getSharedStateTracker?: ((component: TComponent) => Object | Object[] | null) | null,
+    errorHandler?: ((e: Error) => boolean) | null;
 }
 
 export type InitStateTrackingOptions<TComponent> = {
@@ -34,19 +38,20 @@ export type InitStateTrackingOptions<TComponent> = {
     onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     initialState?: ComponentStateDiff<TComponent> | null,
     sharedStateTracker?: Object | Object[] | null,
+    errorHandler?: ((e: Error) => boolean) | null
 }
 
 export interface IStateHandler<TComponent> {
 
     getState(): ComponentState<TComponent>;
 
-    modifyStateDiff(diff: ComponentStateDiff<TComponent>);
+    modifyStateDiff(diff: StateDiff<TComponent>);
 
     subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
 
     whenAll(): Promise<any>;
 
-    execAction<TAction extends StateActionBase>(action: TAction);
+    execAction<TAction extends StateActionBase>(action: TAction): boolean;
 
     release();
 }
@@ -61,6 +66,9 @@ export function initializeImmediateStateTracking<TComponent extends Object>(comp
 
     Object.assign(o, options);
     o.immediateEvaluation = true;
+    if (o.includeAllPredefinedFields == null) {
+        o.includeAllPredefinedFields = true;
+    }
 
     return initializeStateTracking(component, o);
 }
@@ -85,6 +93,7 @@ export function initializeStateTracking<TComponent extends Object>(component: TC
             getInitialState: (options.initialState != null ? (() => options.initialState) : null) as any,
             setHandler: null,
             getSharedStateTracker: (options.sharedStateTracker != null ? (() => options.sharedStateTracker) : null) as any,
+            errorHandler: options.errorHandler ?? null
         };
     }
 

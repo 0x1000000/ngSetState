@@ -22,7 +22,7 @@ export { AsyncInit } from "./api/state_decorators/async_init"
 export { WithSharedAsSource, WithSharedAsSourceArg } from "./api/state_decorators/with_shared_as_source"
 export { WithSharedAsTarget, WithSharedAsTargetArg } from "./api/state_decorators/with_shared_as_target"
 
-export { AsyncContext } from "./api/common"
+export { AsyncContext, StateActionBase } from "./api/common"
 
 //Think of marking as "deprecated"
 export { IWithState, IStateHolder } from "./api/i_with_state"

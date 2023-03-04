@@ -1,4 +1,4 @@
-import { ComponentState, ComponentStateDiff, ISharedStateChangeSubscription } from "./state_tracking";
+import { ComponentState, ComponentStateDiff, ISharedStateChangeSubscription, StateDiff } from "./state_tracking";
 
 export interface IWithState<TComponent> extends IStateHolder<TComponent> {
     modifyState<TK extends keyof NonNullable<ComponentStateDiff<TComponent>>>(propName: TK, value: NonNullable<ComponentStateDiff<TComponent>>[TK]): boolean;
@@ -16,5 +16,5 @@ export interface IStateHolder<TComponent> {
 
     state: ComponentState<TComponent>;
 
-    modifyStateDiff(diff: ComponentStateDiff<TComponent>): boolean;
+    modifyStateDiff(diff: StateDiff<TComponent>): boolean;
 }

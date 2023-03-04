@@ -1,8 +1,15 @@
 import { Constructor, Constructor as IConstructor, StateActionBase } from './../api/common';
 import { StateMeta, AsyncModifier, Modifier, isAsyncModifier, STATE_META, AsyncData, ActionModifier, AsyncActionModifier} from './domain';
 import { checkPromise, cmpByProp } from './utils';
-import { ComponentState, ComponentStateDiff, initializeStateTracking, InitStateTrackingOptions } from './../api/state_tracking';
+import { ComponentState, ComponentStateDiff, initializeStateTracking, InitStateTrackingOptions, StateDiff } from './../api/state_tracking';
 import { IWithState } from './../api/i_with_state';
+
+export type UpdateCycleResult<TComponent> = { 
+    newState: ComponentState<TComponent>,
+    asyncModifiers: AsyncModifier<TComponent>[] | null,
+    emitterProps: (keyof ComponentState<TComponent>)[] | null
+    actions: StateActionBase[] | null
+};
 
 export class Functions {
 
@@ -105,36 +112,48 @@ export class Functions {
 
 
     public static updateCycle<TComponent>(stateMeta: StateMeta<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, freeze: boolean)
-        : { newState: ComponentState<TComponent>, asyncModifiers: AsyncModifier<TComponent>[] | null, emitterProps: (keyof ComponentState<TComponent>)[] | null }
+        : UpdateCycleResult<TComponent>
     {
         if (diff == null) {
-            return { newState: previousState, asyncModifiers: null, emitterProps: null }
+            return { newState: previousState, asyncModifiers: null, emitterProps: null, actions: null };
         }
         const currentState = Functions.cloneStateObject(previousState, diff, stateMeta, freeze);
 
         if (currentState === previousState && stateMeta.emitters.length <= 0) {
-            return { newState: currentState, asyncModifiers: null, emitterProps: null };
+            return { newState: currentState, asyncModifiers: null, emitterProps: null, actions: null };
         }
 
         return Functions.applyModifiersCycle(stateMeta, currentState, previousState, diff, freeze);
     }
 
-    private static applyModifiersCycle<TComponent>(stateMeta: StateMeta<TComponent>, currentState: ComponentState<TComponent>, previousState: ComponentState<TComponent>, diff: NonNullable<ComponentStateDiff<TComponent>>, freeze: boolean)
-        : { newState: ComponentState<TComponent>, asyncModifiers: AsyncModifier<TComponent>[] | null, emitterProps: (keyof ComponentState<TComponent>)[] | null }
+    private static applyModifiersCycle<TComponent>(stateMeta: StateMeta<TComponent>, currentState: ComponentState<TComponent>, previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, freeze: boolean)
+        : UpdateCycleResult<TComponent>
     {
+        if(diff == null) {
+            return { newState: currentState, asyncModifiers: null, emitterProps: null, actions: null};
+        }
+
         let watchDog = 1000;
         let diffKeys = Object.keys(diff) as (keyof ComponentStateDiff<TComponent>)[];
+
+        if (diffKeys.length < 1) {
+            return { newState: currentState, asyncModifiers: null, emitterProps: null, actions: null};
+        }
+
         const originalDiffKeys = diffKeys;
         let modifiers: (Modifier<TComponent> | AsyncModifier<TComponent>)[] = Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, null);
 
         let asyncModifiers: AsyncModifier<TComponent>[] | null = null;
 
         const emitterProps: (keyof ComponentState<TComponent>)[] = [];
+
+        let actions: StateActionBase[] | null = null;
+
         addEmitters(diffKeys);
 
         while (watchDog > 0) {
             if (modifiers.length < 1) {
-                return { newState: currentState, asyncModifiers: asyncModifiers, emitterProps};
+                return { newState: currentState, asyncModifiers: asyncModifiers, emitterProps, actions};
             }
             const modifiersAcc: Modifier<TComponent>[] = [];
             for (const modifier of modifiers) {
@@ -146,11 +165,15 @@ export class Functions {
                     continue;
                 }
 
-                diff = modifier.apply(currentState, [currentState, previousState, diff]);
-                if (checkPromise(diff)) {
+                const mDiff: StateDiff<TComponent> = modifier.apply(currentState, [currentState, previousState, diff]);
+                if (checkPromise(mDiff)) {
                     throw new Error(`All functions which return promises and are marked with "@With" should be also marked with "@Async"`);
                 }
+
+                let mActions: StateActionBase[];
+                [diff, mActions] = Functions.breakSateDiff(mDiff);
                 if (diff != null) {
+
 
                     diffKeys = Object.keys(diff) as (keyof ComponentStateDiff<TComponent>)[];
                     addEmitters(diffKeys);
@@ -165,6 +188,12 @@ export class Functions {
                         currentState = Functions.cloneStateObject(previousState, diff, stateMeta, freeze);
                         Functions.findModifiers(stateMeta, currentState, previousState, diffKeys, modifiersAcc);
                     }
+                }
+                if (mActions.length > 0) {
+                    if(actions == null) {
+                        actions = [];
+                    }
+                    actions.push(...mActions);
                 }
             }
             modifiers = modifiersAcc;
@@ -278,6 +307,57 @@ export class Functions {
                 target.onAfterStateApplied(p);
             }
         }
+    }
+
+    public static breakSateDiff<T>(stateDiff: StateDiff<T>|null): [ComponentStateDiff<T>, StateActionBase[]] {
+        if(stateDiff == null) {
+            return [null, []];
+        }
+        if(Array.isArray(stateDiff)) {
+            if(stateDiff.length < 1) {
+                throw new Error('State diff cannot be an empty array');
+            }
+
+            if(stateDiff.length >= 2) {
+                if(stateDiff.some((x,i) => i!==0 && !(x instanceof StateActionBase))) {
+                    throw new Error('Actions should be inherited from StateActionBase');
+                }
+            }
+            if(stateDiff[0] instanceof StateActionBase) {
+                return [null, stateDiff];
+            } else {
+                return [stateDiff[0], stateDiff.slice(1)];
+            }
+
+        }
+        else{
+            return [stateDiff, []];
+        }
+    }
+
+    public static accStateDiff<T>(acc: StateDiff<T>|null, next: StateDiff<T>|null): StateDiff<T> {
+        if (next == null) {
+            return acc;
+        }
+        let resultDiff: ComponentStateDiff<T> = null;
+        const [accDiff, accActions] = Functions.breakSateDiff(acc);
+        const [nextDiff, nextActions] = Functions.breakSateDiff(next);
+
+        accActions.push(...nextActions);
+        if(accDiff != null && nextDiff != null) {
+            resultDiff = {};
+            Object.assign(resultDiff, accDiff, nextDiff);
+        }
+
+        if (resultDiff == null && accActions.length < 1) {
+            return acc;
+        }
+
+        if(resultDiff != null &&  accActions.length < 1) {
+            return resultDiff;
+        }
+
+        return <StateDiff<T>>[resultDiff, ...accActions];
     }
 
     private static cloneStateObject<TComponent>(previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>, stateMeta: StateMeta<TComponent>, freeze: boolean): ComponentState<TComponent> {

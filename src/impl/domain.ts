@@ -1,6 +1,6 @@
 import { IStateHolder } from './../api/i_with_state';
 import { Constructor, AsyncContext, StateActionBase } from './../api/common';
-import { ComponentState, ComponentStateDiff } from './../api/state_tracking';
+import { ComponentState, ComponentStateDiff, StateDiff } from './../api/state_tracking';
 
 export const STATE_META = "__state_meta__";
 
@@ -34,22 +34,22 @@ export interface StateMeta<TComponent> {
 }
 
 export interface Modifier<TComponent> {
-    (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>): SD<TComponent>;
+    (currentSate: S<TComponent>, previousSate: S<TComponent>, diff: SD<TComponent>): StateDiff<TComponent>;
     callOnInit?: boolean;
 }
 
 export interface AsyncModifier<TComponent> {
-    (currentSate: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<SD<TComponent>> | null;    
+    (currentSate: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<StateDiff<TComponent>> | null;    
 
     asyncData: AsyncData;
 }
 
 export interface ActionModifier<TComponent, TAction> {
-    (action: TAction, currentSate: S<TComponent>): SD<TComponent> | null;    
+    (action: TAction, currentSate: S<TComponent>): StateDiff<TComponent> | null;    
 }
 
 export interface AsyncActionModifier<TComponent, TAction> {
-    (action: TAction, currentSate: AsyncContext<TComponent>): Promise<SD<TComponent>> | null;    
+    (action: TAction, currentSate: AsyncContext<TComponent>): Promise<StateDiff<TComponent>> | null;    
     asyncData: AsyncData;
 }
 
