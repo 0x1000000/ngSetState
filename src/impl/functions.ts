@@ -53,6 +53,7 @@ export class Functions {
                 return original.apply(this, args);
             };
             (<AsyncActionModifier<TComponent, TAction>><any>modifier).asyncData = asyncData;
+            (<AsyncActionModifier<TComponent, TAction>><any>modifier).propertyKey = propertyKey;
         }
 
         let t = stateMeta.actionModifiers.find(x => x.actionType === actionType);
@@ -79,6 +80,7 @@ export class Functions {
                 return original.apply(this, args);
             };
             (<AsyncModifier<TComponent>><any>modifier).asyncData = asyncData;
+            (<AsyncModifier<TComponent>><any>modifier).propertyKey = propertyKey;
         } else {
             (<Modifier<TComponent>>modifier).callOnInit = callOnInit;
         }

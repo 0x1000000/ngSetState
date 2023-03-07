@@ -17,4 +17,6 @@ export interface IStateHolder<TComponent> {
     state: ComponentState<TComponent>;
 
     modifyStateDiff(diff: StateDiff<TComponent>): boolean;
+
+    errorHandler?: (e:Error) => boolean;
 }

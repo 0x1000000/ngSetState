@@ -27,6 +27,9 @@ export class RunningPool<TComponent> {
                 running.next = modifier;
                 return null;
             }
+            else if (behavior === "throwError") {
+                throw new Error(`Concurrent launch is prohibited for '${modifier.mod.propertyKey?.toString()}'`);
+            }
             else if (behavior !== "concurrent") {
                 throw new Error("Unknown behavior: " + behavior);
             }

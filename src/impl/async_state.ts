@@ -49,21 +49,33 @@ export class AsyncState<TComponent> {
     }
 
     private pushModifiers(modifiers: AsyncModifier<TComponent>[], previousState: ComponentState<TComponent>, diff: ComponentStateDiff<TComponent>) {
-        if (modifiers && modifiers.length > 0) {
-            for (const mod of modifiers) {
-                if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
-                    this.registerAndLaunchModifier({mod, previousState, diff});
+        try {
+            if (modifiers && modifiers.length > 0) {
+                for (const mod of modifiers) {
+                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
+                        this.registerAndLaunchModifier({mod, previousState, diff});
+                    }
                 }
+            }
+        } catch (e) {
+            if (!this._component.errorHandler?.apply(null, [e])) {
+                throw e;
             }
         }
     }
 
     private pushActionModifiers<TA>(modifiers: AsyncActionModifier<TComponent, TA>[], action: TA) {
-        if (modifiers && modifiers.length > 0) {
-            for (const mod of modifiers) {
-                if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
-                    this.registerAndLaunchModifier({mod, action});
+        try {
+            if (modifiers && modifiers.length > 0) {
+                for (const mod of modifiers) {
+                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
+                        this.registerAndLaunchModifier({mod, action});
+                    }
                 }
+            }
+        } catch (e) {
+            if (!this._component.errorHandler?.apply(null, [e])) {
+                throw e;
             }
         }
     }
@@ -132,6 +144,10 @@ export class AsyncState<TComponent> {
                     }
                 }
 
+            } catch(e) {
+                if (!this._component.errorHandler?.apply(null, [e])) {
+                    throw e;
+                }
             } finally {
 
                 if (effectiveParameters.mod.asyncData.finalizer != null && !finalized && this._pool.exists(id)) { //if was not replaced

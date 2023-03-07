@@ -2,7 +2,7 @@
 import {  } from "jasmine";
 import { delayMs, EventEmitter } from './helpers';
 import { WithAsync } from "../src/api/state_decorators/with_async";
-import { releaseStateTracking } from "../src/api/state_tracking";
+import { initializeImmediateStateTracking, releaseStateTracking } from "../src/api/state_tracking";
 
 describe('State Tracking...', () => {
     it('Basic Immediate', async () => {
@@ -478,6 +478,112 @@ describe('State Tracking...', () => {
         expect(p2.handler.getState().res).toBe(23 + 1);//S.res unsubscribed
 
     });
+
+    it('Shared state binding by type', async () => {
+
+        @StateTracking({immediateEvaluation: true})
+        class Service1 {
+            @IncludeInState()
+            value: number = 0;            
+        }
+
+        @StateTracking({immediateEvaluation: true})
+        class Service2 {
+            @IncludeInState()
+            value: number = 0;
+        }
+
+        class Client {
+
+
+            @BindToShared(Service1, 'value')
+            value1: number;
+
+            @BindToShared(Service2, 'value')
+            value2: number;
+
+            constructor(s1: Service1, s2: Service2) {
+                initializeImmediateStateTracking(this, {sharedStateTracker: [s1, s2]});
+            }
+        }
+
+        const s1 = new Service1();
+
+        const s2 = new Service2();
+
+        const c = new Client(s1, s2);
+
+
+        s1.value = 10;
+        s2.value = 20;
+
+        expect(c.value1).toBe(10);
+        expect(c.value2).toBe(20);
+    });
+
+    it('Shared state binding collision', async () => {
+
+        @StateTracking({immediateEvaluation: true})
+        class Service1 {
+            @IncludeInState()
+            value: number = 0;            
+        }
+
+        class Client {
+
+
+            @BindToShared(Service1, 'value')
+            value1: number;
+
+            @BindToShared('value')
+            value2: number;
+
+            constructor(s1: Service1, s2: Service1) {
+                initializeImmediateStateTracking(this, {sharedStateTracker: [s1, s2]});
+            }
+        }
+
+        const s1 = new Service1();
+
+        const s2 = new Service1();
+
+        expect(()=>new Client(s1, s2)).toThrowError('Field name collision detected in shared state trackers ("value1"  to "value"). You need to specify an index or type of a desired state tracker.');
+    });
+
+    it('Shared state binding by type (error)', async () => {
+
+        @StateTracking({immediateEvaluation: true})
+        class Service1 {
+            @IncludeInState()
+            value: number = 0;            
+        }
+
+        @StateTracking({immediateEvaluation: true})
+        class Service2 {
+            @IncludeInState()
+            value: number = 0;
+        }
+
+        class Client {
+
+
+            @BindToShared(Service1, 'value')
+            value1: number;
+
+            @BindToShared()
+            value2: number;
+
+            constructor(s1: Service1, s2: Service2) {
+                initializeImmediateStateTracking(this, {sharedStateTracker: [s1, s2]});
+            }
+        }
+
+        const s1 = new Service1();
+
+        const s2 = new Service2();
+
+        expect(()=> new Client(s1, s2)).toThrowError('Could not find "value2" field(s) in the shared state tracker. Make sure it is included in to the state.');
+    });    
 
     it('Debounce Emitter', async () => {
 

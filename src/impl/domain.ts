@@ -16,7 +16,11 @@ export interface PropMeta<TComponent> {
     readonly componentProp: string,
 }
 
-export type SharedBindingRef = ((keyof any) | [(keyof any), number]);
+export type SharedBindingRef = {
+    sharedProp:(keyof any),
+    sharedType?: Constructor<any>,
+    index?: number
+}
 
 export interface StateMeta<TComponent> {
     allDecoratedProperties: PropertyDescriptor[];
@@ -42,6 +46,8 @@ export interface AsyncModifier<TComponent> {
     (currentSate: AsyncContext<TComponent>, originalState: S<TComponent>, diff: SD<TComponent>): Promise<StateDiff<TComponent>> | null;    
 
     asyncData: AsyncData;
+
+    propertyKey: keyof any;
 }
 
 export interface ActionModifier<TComponent, TAction> {
@@ -50,7 +56,10 @@ export interface ActionModifier<TComponent, TAction> {
 
 export interface AsyncActionModifier<TComponent, TAction> {
     (action: TAction, currentSate: AsyncContext<TComponent>): Promise<StateDiff<TComponent>> | null;    
+
     asyncData: AsyncData;
+
+    propertyKey: keyof any;
 }
 
 export interface ConComponent<TComponent> {
@@ -66,7 +75,7 @@ export function isAsyncActionModifier<T, TA>(modifier: AsyncActionModifier<T, TA
 }
 
 
-export type behaviorOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent";
+export type behaviorOnConcurrentLaunch = "cancel" | "putAfter" | "replace" | "concurrent" | "throwError";
 export type behaviorOnError = "throw" | "forget" | {callMethod: (currentState: any, error: any) => any};
 
 export type AsyncData =

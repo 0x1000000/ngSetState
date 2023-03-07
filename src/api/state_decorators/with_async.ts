@@ -132,6 +132,11 @@ function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TCompon
             asyncData.behaviorOnConcurrentLaunch = "concurrent";
             return result;
         },
+        OnConcurrentLaunchThrowError: () => {
+            checkOnConcurrent();
+            asyncData.behaviorOnConcurrentLaunch = "throwError";
+            return result;
+        },
         Locks: (...lockIds: string[]) => {
             checkLocks();
             asyncData.locks = lockIds;
@@ -187,6 +192,7 @@ export interface IWithAsyncOnConcurrentLaunch<TComponent> {
     OnConcurrentLaunchPutAfter(): IWithAsyncAndAllOptions<TComponent>;
     OnConcurrentLaunchReplace(): IWithAsyncAndAllOptions<TComponent>;
     OnConcurrentLaunchConcurrent(): IWithAsyncAndAllOptions<TComponent>;
+    OnConcurrentLaunchThrowError(): IWithAsyncAndAllOptions<TComponent>;
 }
 
 export interface IWithAsyncLocks<TComponent> {

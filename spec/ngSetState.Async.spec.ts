@@ -1,6 +1,7 @@
-﻿import { WithAsync, AsyncInit, WithStateBase, ComponentStateDiff, IncludeInState} from "../src/index";
+﻿import { WithAsync, AsyncInit, WithStateBase, ComponentStateDiff, IncludeInState, StateTracking, initializeImmediateStateTracking, AsyncContext} from "../src/index";
 import { } from "jasmine";
 import { PromiseList, delayMs } from './helpers';
+import { StateDiff } from "../src/api/state_tracking";
 
 describe('Asynchronous tests: OnConcurrentLaunch...', () => {
 
@@ -375,6 +376,41 @@ describe('If,Finally', () => {
         expect(component.state.result).toBe("yes");
 
     });
+
+    it('on concurrent error', async () => {
+        
+        class S {
+            public error?: Error;
+
+            constructor() {
+                initializeImmediateStateTracking<S>(this, {errorHandler: (e)=> {
+                    this.error = e;
+                    return true;
+                }})
+            }
+
+            public value:  number = 0;
+
+            @WithAsync('value').OnConcurrentLaunchThrowError()
+            static async onNum(s: AsyncContext<S>): Promise<StateDiff<S>> {                
+                await delayMs(100);
+                return null;
+            }
+        }
+
+        const s = new S();
+
+        s.value = 100;
+
+        await delayMs(1);
+
+        s.value = 101;
+
+        await delayMs(1);
+
+        expect(s.error?.message).toBe("Concurrent launch is prohibited for 'onNum'");
+    });
+
 });
 
 class TestOnConcurrentLaunchComponent extends WithStateBase<TestOnConcurrentLaunchState> {
