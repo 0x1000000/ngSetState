@@ -107,4 +107,5 @@ export type RunningModifier<TComponent> = {
     readonly promise: Promise<void>;
     readonly originalParameters: ModifierWithParameters<TComponent, any>;
     next: ModifierWithParameters<TComponent, any> | null;
+    finalization?: boolean;//Async promise is completed and it is about to apply a new state
 }

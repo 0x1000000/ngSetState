@@ -1,7 +1,7 @@
 ﻿import { WithAsync, AsyncInit, WithStateBase, ComponentStateDiff, IncludeInState, StateTracking, initializeImmediateStateTracking, AsyncContext} from "../src/index";
 import { } from "jasmine";
 import { PromiseList, delayMs } from './helpers';
-import { StateDiff } from "../src/api/state_tracking";
+import { IStateHandler, StateDiff } from "../src/api/state_tracking";
 
 describe('Asynchronous tests: OnConcurrentLaunch...', () => {
 
@@ -410,6 +410,50 @@ describe('If,Finally', () => {
 
         expect(s.error?.message).toBe("Concurrent launch is prohibited for 'onNum'");
     });
+
+    it('on concurrent error recursion', async () => {
+        
+        class S {
+
+            public error?: Error;
+
+            public readonly handler: IStateHandler<S>;
+
+            constructor() {
+                this.handler = initializeImmediateStateTracking<S>(this, {errorHandler: (e)=> {
+                    this.error = e;
+                    return true;
+                }})
+            }
+
+            public value:  number = 0;
+
+            @WithAsync('value').OnConcurrentLaunchThrowError()
+            static async onNum(s: AsyncContext<S>): Promise<StateDiff<S>> {                
+                const i = s();
+
+                if(i.value >= 3) {
+                    return null;
+                }
+
+                await delayMs(10);
+
+                return {
+                    value: s().value + 1
+                };
+            }
+        }
+
+        const s = new S();
+
+        s.value = 1;
+
+        await s.handler.whenAll();
+
+        expect(s.value).toBe(3);
+        expect(s.error?.message).toBeFalsy();
+    });
+
 
 });
 

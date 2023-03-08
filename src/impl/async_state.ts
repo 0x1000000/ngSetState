@@ -139,7 +139,10 @@ export class AsyncState<TComponent> {
                         }
                     }
                     if (asyncDiff != null) {
+                        this._pool.markForFinalization(id);
+
                         this._component.modifyStateDiff(asyncDiff);
+                        
                         finalized = true;
                     }
                 }

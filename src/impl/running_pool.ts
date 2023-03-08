@@ -28,7 +28,12 @@ export class RunningPool<TComponent> {
                 return null;
             }
             else if (behavior === "throwError") {
-                throw new Error(`Concurrent launch is prohibited for '${modifier.mod.propertyKey?.toString()}'`);
+                if (running.finalization) {
+                    running.next = modifier;
+                    return null;
+                } else {
+                    throw new Error(`Concurrent launch is prohibited for '${modifier.mod.propertyKey?.toString()}'`);
+                }
             }
             else if (behavior !== "concurrent") {
                 throw new Error("Unknown behavior: " + behavior);
@@ -86,6 +91,13 @@ export class RunningPool<TComponent> {
             return  this._storage[oldItemIndex];
         }
         throw new Error("Could not find a running task by its id");
+    }
+
+    public markForFinalization(id: number) {
+        const index = this._storage.findIndex(i => i.id === id);
+        if (index >= 0) {
+            this._storage[index].finalization = true;
+        }
     }
 
     public deleteByIdAndGetPendingModifier(id: number): ModifierWithParameters<TComponent, any> | null {
