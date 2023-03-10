@@ -1,5 +1,5 @@
 import { Constructor, AsyncContext, StateActionBase } from './../../api/common';
-import { ComponentState, ComponentStateDiff } from './../../api/state_tracking';
+import { ComponentState, ComponentStateDiff, StateDiff } from './../../api/state_tracking';
 import { ActionModifier, AsyncData, AsyncModifier, ConComponent } from './../../impl/domain';
 import { Functions } from './../../impl/functions';
 import { delayMs, cmpByPropsAll } from "../../impl/utils";
@@ -15,6 +15,7 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
         behaviorOnConcurrentLaunch: "putAfter",
         behaviorOnError: "throw",
         predicate: null,
+        preSet: null,
         finalizer: null
     };
 
@@ -30,6 +31,7 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
                 behaviorOnConcurrentLaunch: "replace",
                 behaviorOnError: "throw",
                 predicate: null,
+                preSet: null,
                 finalizer: null
             };
 
@@ -40,9 +42,8 @@ export function WithAsync<TComponent>(...propNames: (keyof S<TComponent>)[]): IW
                 propertyKey,
                 { value: buildDebounceModifierFun<TComponent>(propNames, debounceMsRef.value, stateMeta.emitters, descriptor.value, asyncData) },
                 propNames,
-                debounceAsyncData, undefined);
-
-
+                debounceAsyncData, 
+                undefined);
         }
 
         return Functions.addModifier(target, propertyKey, descriptor, propNames, asyncData, undefined);
@@ -60,6 +61,7 @@ export function WithActionAsync<TComponent, TAction extends StateActionBase>(act
         behaviorOnConcurrentLaunch: "putAfter",
         behaviorOnError: "throw",
         predicate: null,
+        preSet: null,
         finalizer: null
     };
 
@@ -75,6 +77,7 @@ export function WithActionAsync<TComponent, TAction extends StateActionBase>(act
                 behaviorOnConcurrentLaunch: "replace",
                 behaviorOnError: "throw",
                 predicate: null,
+                preSet: null,
                 finalizer: null
             };
 
@@ -97,7 +100,7 @@ export function WithActionAsync<TComponent, TAction extends StateActionBase>(act
 
 function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TComponent>, asyncData: AsyncData, debounceMsRef: {value: number| null}): IWithAsyncAllOptions<TComponent> {
 
-    const checks: Checks = { onConcurrent: false, locks: false, onError: false, if: false, finally: false };
+    const checks: Checks = { onConcurrent: false, locks: false, onError: false, if: false, preSet: false, finally: false };
 
     const checkGeneric = (prop: keyof Checks, name: string) => {
         if (checks[prop]) {
@@ -152,7 +155,7 @@ function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TCompon
             asyncData.behaviorOnError = "forget";
             return result;
         },
-        OnErrorCall: (method: (currenTComponent: TComponent, error: any) => Partial<TComponent> | null) => {
+        OnErrorCall: (method: (currentState: ComponentState<TComponent>, error: any) => StateDiff<TComponent> | null) => {
             checkOnError();
             asyncData.behaviorOnError = { callMethod: method };
             return result;
@@ -168,12 +171,17 @@ function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TCompon
             debounceMsRef.value = inDebounceMs;
             return result;
         },
-        If: (predicate: (currenTComponent: TComponent) => boolean) => {
+        If: (predicate: (currentState: ComponentState<TComponent>) => boolean) => {
             checkGeneric("if", "If");
             asyncData.predicate = predicate;
             return result;
         },
-        Finally: (method: () => Partial<TComponent> | null) => {
+        PreSet: (method: (currentState: ComponentState<TComponent>) => StateDiff<TComponent> | null) => {
+            checkGeneric("preSet", "PreSet");
+            asyncData.preSet = method;
+            return result;
+        },
+        Finally: (method: (currentState: ComponentState<TComponent>) => StateDiff<TComponent> | null) => {
             checkGeneric("finally", "Finally");
             asyncData.finalizer = method;
             return result;
@@ -181,7 +189,7 @@ function getAsyncDataBuilder<TComponent>(result: IWithAsyncAndAllOptions<TCompon
     }    
 }
 
-type Checks = { onConcurrent: boolean, locks: boolean, onError: boolean, if: boolean, finally: boolean };
+type Checks = { onConcurrent: boolean, locks: boolean, onError: boolean, if: boolean, preSet: boolean, finally: boolean };
 
 export type IWithAsyncAllOptions<TComponent> = IWithAsyncOnConcurrentLaunch<TComponent> & IWithAsyncLocks<TComponent> & IWithAsyncOnError<TComponent> & IWithAsyncTimeFunctions<TComponent> & IWithAsyncPrePostFunctions<TComponent>;
 
@@ -202,7 +210,7 @@ export interface IWithAsyncLocks<TComponent> {
 export interface IWithAsyncOnError<TComponent> {
     OnErrorThrow(): IWithAsyncAndAllOptions<TComponent>;
     OnErrorForget(): IWithAsyncAndAllOptions<TComponent>;
-    OnErrorCall(method: (currenTComponent: TComponent, error: any)=> Partial<TComponent>|null): IWithAsyncAndAllOptions<TComponent>;
+    OnErrorCall(method: (currentState: ComponentState<TComponent>, error: any) => StateDiff<TComponent> | null): IWithAsyncAndAllOptions<TComponent>;
 }
 
 export interface IWithAsyncTimeFunctions<TComponent> {
@@ -210,15 +218,14 @@ export interface IWithAsyncTimeFunctions<TComponent> {
 }
 
 export interface IWithAsyncPrePostFunctions<TComponent> {
-    If(predicate: (currenTComponent: TComponent) => boolean): IWithAsyncAndAllOptions<TComponent>;
-    Finally(method: () => Partial<TComponent> | null): IWithAsyncAndAllOptions<TComponent>;
+    If(predicate: (currentState: ComponentState<TComponent>) => boolean): IWithAsyncAndAllOptions<TComponent>;
+    PreSet(method: (currentState: ComponentState<TComponent>) => StateDiff<TComponent> | null): IWithAsyncAndAllOptions<TComponent>;
+    Finally(method: (currentState: ComponentState<TComponent>) => StateDiff<TComponent> | null): IWithAsyncAndAllOptions<TComponent>;
 }
-
 
 export interface IWithAsync<TComponent> {
     (target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor);
 }
-
 
 function buildDebounceModifierFun<TComponent>(propNames: (keyof S<TComponent>)[], debounceMs: number, emitters: (keyof S<TComponent>)[], fun: AsyncModifier<TComponent>, asyncData: AsyncData) {
 
@@ -252,7 +259,7 @@ function buildDebounceActionModifierFun<TComponent, TAction extends StateActionB
 
         if (!asyncContext.isCancelled()) {
             const currentState = asyncContext();
-            return fun.apply(currentState, [action, currentState]);
+            return fun.apply(null, [action, currentState]);
         }
         return null;
     }

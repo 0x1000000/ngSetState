@@ -51,7 +51,7 @@ export interface IStateHandler<TComponent> {
 
     whenAll(): Promise<any>;
 
-    execAction<TAction extends StateActionBase>(action: TAction): boolean;
+    execAction<TAction extends StateActionBase>(action: TAction|TAction[]): boolean;
 
     release();
 }

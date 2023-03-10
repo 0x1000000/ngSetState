@@ -17,7 +17,8 @@ type SharedPropMap<TComponent> = {
 
 interface IStateTrackerSubscriber {
     onStateChange(sharedState: Object, state: Object, previous: Object);
-}
+    
+    execAction<TAction extends StateActionBase>(action: TAction|TAction[]): boolean;}
 
 interface IStateTrackerRef {
     subscribeTracker(subscriber: IStateTrackerSubscriber);
@@ -90,6 +91,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
     private _subscription: ISharedStateChangeSubscription | null = null;
 
     public _observableSubscriptions: SubscriptionLike[] | null = null; 
+
+    private _released?: boolean;
 
     public static releaseComponent<TComponent>(component: TComponent) {
         const ref: IStateTrackerRef = component[StateTrackerContext.contextRefPropertyId];
@@ -203,6 +206,10 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             }            
         }
 
+        //Replacing with getters and setters with pointing to a shared state
+        this._sharedComponents = this._options.getSharedStateTracker?.call(component, component);
+        this._sharedComponentPropBindingMap = this.connectToSharedTrackers();
+
         //Might be called immediately and modify state so it is at the end of constrictor (before binding to shared)
         if(observables != null) {
             if (this._observableSubscriptions == null) {
@@ -227,10 +234,6 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             }
         }       
 
-        //Replacing with getters and setters with pointing to a shared state
-        this._sharedComponents = this._options.getSharedStateTracker?.call(component, component);
-        this._sharedComponentPropBindingMap = this.connectToSharedTrackers();
-
         //Constructing stateTrackerHandler
         this._options.setHandler?.call(component, component, handler);
 
@@ -240,7 +243,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 modifyStateDiff: (diff) => context.modifyStateDiff(diff),
                 subscribeSharedStateChange: () => context.subscribeSharedStateChange(),
                 whenAll: () => context.whenAll(),
-                execAction: (a) => context.execActions(a),
+                execAction: (a) => context.execActions(a, true),
                 release: () => context.release()
             }
         }
@@ -346,8 +349,8 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         }
         for(const f of modifiersOnInit) {
             const diff = f.arg == null 
-                ? f.mod.apply(this._component, [this.state, this.state, {}])
-                : f.mod.apply(this._component, [{currentSharedState: f.arg, previousSharedState: f.arg, currentState: this.state} satisfies WithSharedAsSourceArg<TComponent, any>]);
+                ? f.mod.apply(null, [this.state, this.state, {}])
+                : f.mod.apply(null, [{currentSharedState: f.arg, previousSharedState: f.arg, currentState: this.state} satisfies WithSharedAsSourceArg<TComponent, any>]);
             if (diff != null) {
                 this.modifyStateDiff(diff);
             }
@@ -404,7 +407,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                         currentState: newState
                     };
     
-                    const diff = fun.apply(this._component, [arg]);
+                    const diff = fun.apply(null, [arg]);
                     if(diff != null){
                         pushToAccDiff(targetMapper.sharedComponent, diff);
                     }                    
@@ -553,15 +556,19 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                         }
                     }
 
-                    if (result && this._options.onStateApplied != null) {
+                    if (result && this._options.onStateApplied != null && !this._released) {
                         //onStateApplied might lead to further state modification, so the call should be pushed out of the update cycle
                         StateTrackerContext.notifyQueue.add(
                             this._component,
-                            () => this._options.onStateApplied?.call(
-                                this._component,
-                                this._component,
-                                this.state,
-                                previousState));
+                            () => {
+                                if(!this._released) {
+                                    this._options.onStateApplied?.call(
+                                        this._component,
+                                        this._component,
+                                        this.state,
+                                        previousState);
+                                }
+                            });
                     }
 
                 }
@@ -570,9 +577,10 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 }
             }
             if (externalActionsAcc == null && actions.length > 0) {
-                if(!this.execActions(actions)) {
+                this.execActions(actions, true);
+                /*if(!this.execActions(actions)) {
                     throw new Error('Could not find any handler for the action(s)');
-                }
+                }*/
             }
         } catch (e) {
             if(!this._options?.errorHandler?.apply(null, [e])) {
@@ -745,7 +753,10 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
 
         const subscribers: IStateTrackerSubscriber[] = [];
         for (const ref of refs) {
-            const subscriber = { onStateChange: (t, s, p) => this.onSharedStateChanged(t, s, p) };
+            const subscriber = { 
+                onStateChange: (t, s, p) => this.onSharedStateChanged(t, s, p),
+                execAction: (a) => this.execActions(a, false)
+            };
             ref.subscribeTracker(subscriber);
             subscribers.push(subscriber);
         }
@@ -774,13 +785,15 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             }
             this._observableSubscriptions = null;
         }
+
+        this._released = true;
     }
 
     private whenAll(): Promise<any> {
         return AsyncState.whenAll(this);
     }
 
-    private execActions(actionIn: StateActionBase|StateActionBase[]): boolean {
+    private execActions(actionIn: StateActionBase|StateActionBase[], invokeShared: boolean): boolean {
         const actions = this.ensureArray(actionIn);
         const sharedComponents = this.ensureNullArray(this._sharedComponents);
         let result = false;
@@ -836,13 +849,20 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     }
                 }
 
-                if (sharedComponents != null) {
+                if (sharedComponents != null && invokeShared) {
                     for (const sc of sharedComponents) {
                         if (StateTrackerContext.tryGetStateHandler(sc)?.execAction(action)) {
                             result = true;
                         }
                     }
-                }   
+                }
+                if (this._subscribers != null && this._subscribers.length > 0) {
+                    for (const s of this._subscribers) {
+                        if( s.execAction(action) ) {
+                            result = true;
+                        }
+                    }
+                }
             }
 
             currentActions = nextActions;
@@ -917,7 +937,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     currentState: this.state,
                 };
 
-                const locDiff = modifier.apply(this._component, [arg]);
+                const locDiff = modifier.apply(null, [arg]);
                 if(locDiff != null) {
                     this.modifyStateDiff(locDiff);
                 }                

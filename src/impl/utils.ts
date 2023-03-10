@@ -11,11 +11,12 @@ export function checkIsEventEmitterLike<T>(o: any): o is EventEmitterLike<T> {
 }
 
 export function checkIsObservableLike<T>(o: any): o is ObservableLike<T> {
-    return o != null && (o as ObservableLike<T>).subscribe != null
+    return o != null && (o as ObservableLike<T>).subscribe != null;        
 }
 
 export function checkIsSubjectLike<T>(o: any): o is SubjectLike<T> {
     return checkIsObservableLike<T>(o) && (o as SubjectLike<T>).next != null
+        && o['ngOnDestroy'] == null && o['addReducer'] == null;//ngRx
 }
 
 export function checkIsOnlyObservableLike<T>(o: any): o is ObservableLike<T> {

@@ -27,6 +27,7 @@ export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAn
                     behaviorOnConcurrentLaunch: "replace",
                     behaviorOnError: "throw",
                     predicate: null,
+                    preSet: null,
                     finalizer: null
                 };
 
@@ -72,6 +73,7 @@ export function WithAction<TComponent, TAction extends StateActionBase>(actionTy
                     behaviorOnConcurrentLaunch: "replace",
                     behaviorOnError: "throw",
                     predicate: null,
+                    preSet: null,
                     finalizer: null
                 };
 
@@ -136,7 +138,7 @@ function buildDebounceModifierFun<TComponent>(propNames: (keyof S<TComponent>)[]
             const runAlways = emitters.length > 0 && propNames.some(p => emitters.indexOf(p) >= 0);
 
             if (runAlways || !cmpByPropsAll(originalState, currentState, propNames)) {
-                return fun.apply(currentState, [currentState, originalState, diff]);
+                return fun.apply(null, [currentState, originalState, diff]);
             }
         }
         return null;
@@ -153,7 +155,7 @@ function buildDebounceActionModifierFun<TComponent, TAction extends StateActionB
 
         if (!asyncContext.isCancelled()) {
             const currentState = asyncContext();
-            return fun.apply(currentState, [action, currentState]);
+            return fun.apply(null, [action, currentState]);
         }
         return null;
     }

@@ -167,7 +167,7 @@ export class Functions {
                     continue;
                 }
 
-                const mDiff: StateDiff<TComponent> = modifier.apply(currentState, [currentState, previousState, diff]);
+                const mDiff: StateDiff<TComponent> = modifier.apply(null, [currentState, previousState, diff]);
                 if (checkPromise(mDiff)) {
                     throw new Error(`All functions which return promises and are marked with "@With" should be also marked with "@Async"`);
                 }
@@ -346,7 +346,7 @@ export class Functions {
         const [nextDiff, nextActions] = Functions.breakSateDiff(next);
 
         accActions.push(...nextActions);
-        if(accDiff != null && nextDiff != null) {
+        if(accDiff != null || nextDiff != null) {
             resultDiff = {};
             Object.assign(resultDiff, accDiff, nextDiff);
         }

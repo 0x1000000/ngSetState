@@ -454,6 +454,59 @@ describe('If,Finally', () => {
         expect(s.error?.message).toBeFalsy();
     });
 
+    it('pre set fin', async () => {
+        class S {
+
+            value: number = 0;
+
+            counter: number = 0;
+
+            handler: IStateHandler<S>;
+
+            valuesHandled: number[] = [];
+
+            constructor() {
+                this.handler = initializeImmediateStateTracking<S>(this);
+            }
+
+            @WithAsync<S>('value')
+                .OnConcurrentLaunchConcurrent()
+                .PreSet(s => ({counter: s.counter + 1}))
+                .Finally(s => ({counter: s.counter - 1}))
+            static async doValue(getState: AsyncContext<S>): Promise<StateDiff<S>> {
+
+                const v = getState().value;
+
+                await delayMs(100);
+
+                return {
+                    valuesHandled: [...getState().valuesHandled, v]
+                };
+            }
+        }
+
+        const s = new S();
+
+        s.value = 1;
+
+        expect(s.counter).toBe(1);
+
+        await delayMs(1);
+
+        s.value = 2;
+
+        expect(s.counter).toBe(2);
+        await delayMs(1);
+
+        s.value = 3;
+        expect(s.counter).toBe(3);
+
+        await s.handler.whenAll();
+
+        expect(s.counter).toBe(0);
+
+        expect(s.valuesHandled).toEqual([1, 2, 3]);
+    });
 
 });
 

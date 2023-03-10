@@ -84,7 +84,8 @@ export type AsyncData =
     behaviorOnConcurrentLaunch: behaviorOnConcurrentLaunch;
     behaviorOnError: behaviorOnError;
     predicate: ((state: any) => boolean) | null;
-    finalizer: (() => any) | null;
+    preSet: ((state: any) => any) | null;
+    finalizer: ((state: any) => any) | null;
 }
 
 export type AsyncModifierWithParameters<TComponent> = {

@@ -8,7 +8,7 @@ import { Functions } from "./functions";
 
 export class AsyncState<TComponent> {
 
-    constructor(private readonly _component: IStateHolder<TComponent>) { }
+    constructor(private readonly _stateHolder: IStateHolder<TComponent>) { }
 
     private readonly _pool = new RunningPool<TComponent>();
     
@@ -52,13 +52,16 @@ export class AsyncState<TComponent> {
         try {
             if (modifiers && modifiers.length > 0) {
                 for (const mod of modifiers) {
-                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
+                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._stateHolder.state)) {
+                        if(mod.asyncData.preSet != null) {
+                            this._stateHolder.modifyStateDiff(mod.asyncData.preSet(this._stateHolder.state));
+                        }
                         this.registerAndLaunchModifier({mod, previousState, diff});
                     }
                 }
             }
         } catch (e) {
-            if (!this._component.errorHandler?.apply(null, [e])) {
+            if (!this._stateHolder.errorHandler?.call(null, e)) {
                 throw e;
             }
         }
@@ -68,13 +71,16 @@ export class AsyncState<TComponent> {
         try {
             if (modifiers && modifiers.length > 0) {
                 for (const mod of modifiers) {
-                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._component.state)) {
+                    if (mod.asyncData.predicate == null || mod.asyncData.predicate(this._stateHolder.state)) {
+                        if(mod.asyncData.preSet != null) {
+                            this._stateHolder.modifyStateDiff(mod.asyncData.preSet(this._stateHolder.state));
+                        }
                         this.registerAndLaunchModifier({mod, action});
                     }
                 }
             }
         } catch (e) {
-            if (!this._component.errorHandler?.apply(null, [e])) {
+            if (!this._stateHolder.errorHandler?.call(null, e)) {
                 throw e;
             }
         }
@@ -99,7 +105,7 @@ export class AsyncState<TComponent> {
         }
 
         const promise = (async () => {
-            let finalized: boolean = false;
+            let finalized = false;
             try {
 
                 const res = isAsyncActionModifierWithParameters(effectiveParameters)
@@ -121,9 +127,9 @@ export class AsyncState<TComponent> {
                         throw error;
                     } else if (effectiveParameters.mod.asyncData.behaviorOnError.callMethod != null) {
                         if (this._pool.exists(id)) { //if was not replaced
-                            const errorDiff = effectiveParameters.mod.asyncData.behaviorOnError.callMethod(this._component.state, error);
+                            const errorDiff = effectiveParameters.mod.asyncData.behaviorOnError.callMethod(this._stateHolder.state, error);
                             if (errorDiff != null) {
-                                this._component.modifyStateDiff(errorDiff);
+                                this._stateHolder.modifyStateDiff(errorDiff);
                             }
                         }
                     } else {
@@ -132,31 +138,35 @@ export class AsyncState<TComponent> {
                 }
 
                 if (this._pool.exists(id)) {//if was not replaced
-                    if (effectiveParameters.mod.asyncData.finalizer != null) {
-                        const finalDiff = effectiveParameters.mod.asyncData.finalizer();
-                        if (finalDiff != null) {
-                            asyncDiff = asyncDiff == null ? finalDiff : Functions.accStateDiff(asyncDiff, finalDiff);
-                        }
-                    }
+                    this._pool.markForFinalization(id);
                     if (asyncDiff != null) {
-                        this._pool.markForFinalization(id);
 
-                        this._component.modifyStateDiff(asyncDiff);
-                        
+                        if (effectiveParameters.mod.asyncData.finalizer != null) {
+                            const [actualDiff] = Functions.breakSateDiff(asyncDiff);
+
+                            const fState = actualDiff == null 
+                                ? this._stateHolder.state 
+                                : Object.freeze({...this._stateHolder.state, ...actualDiff});
+
+                            const finalDiff = effectiveParameters.mod.asyncData.finalizer.call(null, fState);
+                            if (finalDiff != null) {
+                                asyncDiff = Functions.accStateDiff(asyncDiff, finalDiff);
+                            }
+                        }
+                        this._stateHolder.modifyStateDiff(asyncDiff);
                         finalized = true;
                     }
                 }
 
             } catch(e) {
-                if (!this._component.errorHandler?.apply(null, [e])) {
+                if (!this._stateHolder.errorHandler?.call(null, e)) {
                     throw e;
                 }
             } finally {
-
                 if (effectiveParameters.mod.asyncData.finalizer != null && !finalized && this._pool.exists(id)) { //if was not replaced
-                    const finalDiff = effectiveParameters.mod.asyncData.finalizer();
+                    const finalDiff = effectiveParameters.mod.asyncData.finalizer.call(null, this._stateHolder.state);
                     if (finalDiff != null) {
-                        this._component.modifyStateDiff(finalDiff);
+                        this._stateHolder.modifyStateDiff(finalDiff);
                     }
                 }
                 const pending = this._pool.deleteByIdAndGetPendingModifier(id);
@@ -171,11 +181,11 @@ export class AsyncState<TComponent> {
 
     private createAsyncContext(id: number): AsyncContext<TComponent> & ConComponent<TComponent> {
 
-        const result = (() => this._component.state) as AsyncContext<TComponent> & ConComponent<TComponent>;
+        const result = (() => this._stateHolder.state) as AsyncContext<TComponent> & ConComponent<TComponent>;
 
         result.isCancelled = () => !this._pool.exists(id);
 
-        result.getComponent = () => this._component;
+        result.getComponent = () => this._stateHolder;
 
         return result;
     }

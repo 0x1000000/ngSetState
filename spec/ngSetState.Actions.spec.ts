@@ -263,6 +263,12 @@ describe('Actions...', () => {
             }
         }
 
+        class ActionGlobal extends StateActionBase {
+            constructor(readonly value: number){
+                super();
+            }
+        }
+
         class Service {
 
             serviceValue: number = 0;
@@ -280,9 +286,9 @@ describe('Actions...', () => {
 
             @WithAction(ActionB)
             static onActionB(a: ActionA, s: ComponentState<Service>): StateDiff<Service> {
-                return {
+                return [{
                     serviceValue: s.serviceValue + a.value
-                }
+                }, new ActionGlobal(a.value)];
             }
         }
 
@@ -292,25 +298,39 @@ describe('Actions...', () => {
 
             constructor(service: Service) {
                 this.handler = initializeImmediateStateTracking<Component>(this, {sharedStateTracker: service});
+                this.handler.subscribeSharedStateChange();
             }
 
             readonly componentValue = new Subject<number>();
+
+            readonly globalValue: number;
 
             @With('componentValue')
             static withValue(s: ComponentState<Component>): StateDiff<Component> {
                 return [new ActionA(s.componentValue ?? 0), new ActionB((s.componentValue ?? 0)/2)];
             }
-        }
 
+            @WithAction(ActionGlobal)
+            static onGlobalAction(a: ActionGlobal): StateDiff<Component> {
+                return {
+                    globalValue: a.value
+                };
+            }
+        }
 
         const service = new Service();
         const component1 = new Component(service);
         const component2 = new Component(service);
 
         component1.componentValue.next(10);
+
+        expect(component1.globalValue).toBe(5);
+
         component2.componentValue.next(20);
 
         expect(service.serviceValue).toBe(45);
+
+        expect(component1.globalValue).toBe(10);
 
         component1.handler.release();
         component2.handler.release();

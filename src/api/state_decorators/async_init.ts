@@ -10,6 +10,7 @@ export function AsyncInit<TState>(): IWithAsync<TState> & IAsyncInitLocks<TState
         behaviorOnConcurrentLaunch: "concurrent",
         behaviorOnError: "throw",
         finalizer: null,
+        preSet: null,
         predicate: null
     };
 
@@ -21,7 +22,7 @@ export function AsyncInit<TState>(): IWithAsync<TState> & IAsyncInitLocks<TState
 
             const original = asyncInit;
             asyncInit = function(...args: any[]) {
-                return original.apply(this, args);
+                return original.apply(null, args);
             } as any;
 
             (<AsyncModifier<TState>><any>asyncInit).asyncData = asyncData;

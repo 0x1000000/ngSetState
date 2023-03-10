@@ -1,6 +1,7 @@
 export { 
     ComponentState,
     ComponentStateDiff,
+    StateDiff,
     IStateHandler,
     ISharedStateChangeSubscription,
     StateTrackingOptions,
