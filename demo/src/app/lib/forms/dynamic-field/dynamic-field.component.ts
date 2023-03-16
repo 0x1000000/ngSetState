@@ -18,7 +18,7 @@ export class DynamicFieldComponent implements OnDestroy, OnInit, FormFieldsState
   constructor(cd: ChangeDetectorRef, fieldsState: FormFieldsState) {
     const handler = initializeStateTracking<DynamicFieldComponent>(this, {
       onStateApplied: () => {if (this._isInit && !this._isDestroyed) { cd.detectChanges(); }},
-      immediateEvaluation: true,
+      immediateEvaluation: false,
       sharedStateTracker: [fieldsState] }
     );
 

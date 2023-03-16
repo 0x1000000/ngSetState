@@ -1,0 +1,48 @@
+
+<h2>Form Demo</h2>
+
+<p>
+    You can edit this form on the fly without explicit saving actions
+</p>
+
+<div class="table-and-editor">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Active</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>State</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let u of items" (click)="onSelectItem(u)" [class.selectedRow]="isSelectedItem(u)">
+                    <td>{{u.user.active}}</td>
+                    <td>{{u.user.firstName}}</td>
+                    <td>{{u.user.lastName}}</td>
+                    <td>{{getStatus(u)}}</td>
+                    <td>
+                        <button class="btn btn-secondary" (click)="onDeleteItem(u)" title="Delete User">
+                            <svg class="icon">
+                                <use xlink:href="#icon-delete"></use>
+                            </svg>
+                        </button>                    
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="actions-container">
+            <button class="btn btn-primary" (click)="onNewItem()">Add New User</button>
+        </div>
+    </div>
+    <div class="editor-container">
+        <edit-user-form>
+
+        </edit-user-form>
+    </div>    
+</div>
+<modal-dialog title="User Deletion" [isOpen]="deletingItem != null" buttons="no-yes" (buttonClick)="onDeleteConfirm($event)">
+    Are you sure?
+</modal-dialog>

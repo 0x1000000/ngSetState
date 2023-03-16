@@ -1,0 +1,9 @@
+<ng-container *ngIf="initialFormData">
+    <dynamic-form 
+        [fields]="formFields"
+        [initialFormObject]="initialFormData"
+        [(formObject)]="currentFormData"
+        (isErrorChange)="isError = $event"
+        (isDirtyChange)="isDirty = $event">
+    </dynamic-form>
+</ng-container>

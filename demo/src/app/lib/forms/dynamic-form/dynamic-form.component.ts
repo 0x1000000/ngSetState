@@ -31,7 +31,7 @@ export class DynamicFormComponent implements AfterContentInit, AfterViewInit, On
   constructor(cd: ChangeDetectorRef, fieldsState: FormFieldsState) {
     initializeStateTracking<DynamicFormComponent>(this, {
       onStateApplied: () => cd.detectChanges(),
-      immediateEvaluation: true,
+      immediateEvaluation: false,
       sharedStateTracker: [fieldsState]})
 
       .subscribeSharedStateChange();

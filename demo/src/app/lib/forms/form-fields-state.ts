@@ -3,7 +3,7 @@ import { initializeStateTracking } from 'ng-set-state';
 export class FormFieldsState {
   constructor( ){
     initializeStateTracking(this, {
-      immediateEvaluation: true,
+      immediateEvaluation: false,
       includeAllPredefinedFields: true
     });
   }

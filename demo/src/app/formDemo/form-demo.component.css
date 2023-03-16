@@ -1,0 +1,40 @@
+.table-and-editor {
+  display: flex;
+  flex-direction: row;
+}
+
+.table-container, .editor-container {
+  margin: 30px;
+}
+
+table {
+  border-collapse: collapse;
+  border: 1px solid var(--t-border-color);
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover {
+   background-color: var(--t-primary-select-color-hover);
+   color: var(--t-primary-select-color-opposite);
+}
+
+td, th {
+  padding: 10px;
+}
+
+td {
+  border: 1px solid var(--t-border-color);
+  min-width: 100px;
+}
+
+tr.selectedRow {
+  color: var(--t-secondary-select-color-opposite); 
+  background-color: var(--t-secondary-select-color);
+}
+
+.actions-container {
+  margin-top: 30px;
+}
