@@ -508,6 +508,32 @@ describe('If,Finally', () => {
         expect(s.valuesHandled).toEqual([1, 2, 3]);
     });
 
+    it('Async Init (When All)', async () => {        
+        class C {
+            
+            val: number = 0;
+
+            stateHandler: IStateHandler<C>;
+
+            constructor() {
+                this.stateHandler = initializeImmediateStateTracking<C>(this);
+            }
+
+            @AsyncInit()
+            static async init(): Promise<StateDiff<C>> {
+
+                await delayMs(10);
+
+                return {val: 5};
+            }
+        }
+
+        const cmp = new C();
+
+        await cmp.stateHandler.whenAll();
+
+        expect(cmp.val).toBe(5);
+    });
 });
 
 class TestOnConcurrentLaunchComponent extends WithStateBase<TestOnConcurrentLaunchState> {

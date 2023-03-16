@@ -83,7 +83,7 @@ export type AsyncData =
     locks: string[] | null,
     behaviorOnConcurrentLaunch: behaviorOnConcurrentLaunch;
     behaviorOnError: behaviorOnError;
-    predicate: ((state: any) => boolean) | null;
+    predicate: ((state: any) => boolean) | null | undefined;
     preSet: ((state: any) => any) | null;
     finalizer: ((state: any) => any) | null;
 }

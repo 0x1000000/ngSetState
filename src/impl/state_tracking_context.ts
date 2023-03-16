@@ -210,6 +210,9 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
         this._sharedComponents = this._options.getSharedStateTracker?.call(component, component);
         this._sharedComponentPropBindingMap = this.connectToSharedTrackers();
 
+        //Calling all modifiers that are marked as CallOnInit()
+        this.callOnInit();
+
         //Might be called immediately and modify state so it is at the end of constrictor (before binding to shared)
         if(observables != null) {
             if (this._observableSubscriptions == null) {
@@ -248,13 +251,10 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             }
         }
 
-        //Calling all modifiers that are marked as CallOnInit()
-        this.callOnInit();
-
         //Push async init modifier
         if (stateMeta.asyncInit != null) {
             const init = stateMeta.asyncInit;
-            setTimeout(() => AsyncState.pushModifiers(this, [init], this.state, {}));
+            AsyncState.pushModifiers(this, [init], this.state, {});
         }
     }
 

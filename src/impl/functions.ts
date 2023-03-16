@@ -11,6 +11,11 @@ export type UpdateCycleResult<TComponent> = {
     actions: StateActionBase[] | null
 };
 
+export type AddModifierParams = {
+    callOnInit?: boolean,
+    if?: (s: any) => boolean,
+}
+
 export class Functions {
 
     public static addSharedModifier<TComponent>(toShared: boolean, sharedType: Constructor<any>, target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof any)[], callOnInit: boolean | undefined) {
@@ -69,7 +74,7 @@ export class Functions {
         }
     }
 
-    public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null, callOnInit: boolean | undefined) {
+    public static addModifier<TComponent>(target: Constructor<TComponent>|TComponent, propertyKey: string, descriptor: PropertyDescriptor, propNames: (keyof ComponentState<TComponent>)[], asyncData: AsyncData | null, params?: AddModifierParams) {
         const stateMeta = Functions.ensureStateMeta(target);
         Functions.ensureModifierDecoratedOnce(stateMeta, descriptor, propertyKey);
         let modifier: Modifier<TComponent> | AsyncModifier<TComponent> = descriptor.value;
@@ -82,7 +87,17 @@ export class Functions {
             (<AsyncModifier<TComponent>><any>modifier).asyncData = asyncData;
             (<AsyncModifier<TComponent>><any>modifier).propertyKey = propertyKey;
         } else {
-            (<Modifier<TComponent>>modifier).callOnInit = callOnInit;
+            (<Modifier<TComponent>>modifier).callOnInit = params?.callOnInit;
+            if(params?.if != null) {
+                const original = modifier;
+                const predicate = params.if;
+                modifier = function (...args: any[]) {
+                    if (args.length > 0 && !predicate(args[0])) {
+                        return null;
+                    }
+                    return original.apply(this, args);
+                };    
+            }            
         }
     
         for (const propName of propNames) {

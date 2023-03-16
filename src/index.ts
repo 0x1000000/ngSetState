@@ -9,6 +9,7 @@ export {
     initializeImmediateStateTracking,
     initializeStateTracking,
     releaseStateTracking,
+    getStateHandler,
     StateTracking
 } from "./api/state_tracking"
 

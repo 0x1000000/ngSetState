@@ -106,6 +106,14 @@ export function initializeStateTracking<TComponent extends Object>(component: TC
     return handler;
 }
 
+export function getStateHandler<T>(component: T): IStateHandler<T> {
+    const handler = StateTrackerContext.tryGetStateHandler<T>(component);
+    if (handler == null) {
+        throw new Error('Component was not initialized for state tracking');
+    }
+    return handler;
+}
+
 export function releaseStateTracking(component: any) {
     StateTrackerContext.releaseComponent(component);
 }

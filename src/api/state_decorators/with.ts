@@ -9,16 +9,17 @@ type SD<T> = ComponentStateDiff<T>;
 
 type Parameters = {
     debounceMs?: number,
-    callOnInit?: boolean
+    callOnInit?: boolean,
+    if?: (s: any) => boolean,
+    notEqualNull?: boolean
 };
 
-export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAndAllOptions<TComponent> & IWithCallOnInit<TComponent> {
+export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithParams<TComponent> {
 
     const parameters: Parameters = {};
 
-    const result: IWithAndAllOptions<TComponent> & IWithCallOnInit<TComponent> =
+    const result: IWithParams<TComponent> =
         <any>((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
-
 
             if (parameters.debounceMs && parameters.debounceMs > 0) {
 
@@ -26,7 +27,7 @@ export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAn
                     locks: null,
                     behaviorOnConcurrentLaunch: "replace",
                     behaviorOnError: "throw",
-                    predicate: null,
+                    predicate: buildPredicate(propNames, parameters.notEqualNull ?? false, parameters.if),
                     preSet: null,
                     finalizer: null
                 };
@@ -41,7 +42,10 @@ export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAn
                     asyncData, 
                     undefined);
             } else {
-                return Functions.addModifier(target, propertyKey, descriptor, propNames, null, parameters.callOnInit);
+                return Functions.addModifier(target, propertyKey, descriptor, propNames, null, {
+                    callOnInit: parameters.callOnInit, 
+                    if: buildPredicate(propNames, parameters.notEqualNull ?? false, parameters.if)
+                });
             }
         });
 
@@ -49,21 +53,31 @@ export function With<TComponent>(...propNames: (keyof S<TComponent>)[]): IWithAn
 
     Object.assign(result, {
         CallOnInit: () => {
+            checkParameterIsNotSet<Parameters, IWithParams<any>>(parameters, 'callOnInit', 'CallOnInit');
             parameters.callOnInit = true;
+            return result;
+        },
+        If: (predicate: (state: TComponent) => boolean) => {
+            checkParameterIsNotSet<Parameters, IWithParams<any>>(parameters, 'if', 'If');
+            parameters.if = predicate;
+            return result;
+        },
+        IfNotEqualNull: () => {
+            checkParameterIsNotSet<Parameters, IWithParams<any>>(parameters, 'notEqualNull', 'IfNotEqualNull');
+            parameters.notEqualNull = true;
             return result;
         }
 
-    } satisfies IWithCallOnInit<TComponent>);
+    } satisfies Omit<IWithParams<TComponent>, 'Debounce'>);
 
     return result;
 }
 
-
-export function WithAction<TComponent, TAction extends StateActionBase>(actionType: Constructor<TAction>): IWithAndAllOptions<TComponent> {
+export function WithAction<TComponent, TAction extends StateActionBase>(actionType: Constructor<TAction>): IWithActionParams<TComponent> {
 
     const parameters: any = {};
 
-    const result: IWithAndAllOptions<TComponent> =
+    const result: IWithActionParams<TComponent> =
         <any>((target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor) => {
 
             if (parameters.debounceMs && parameters.debounceMs > 0) {
@@ -98,31 +112,54 @@ export function WithAction<TComponent, TAction extends StateActionBase>(actionTy
     return result;
 }
 
-export interface IWith<TComponent> {
+export interface IMethodDecorator<TComponent> {
     (target: Constructor<TComponent>, propertyKey: string, descriptor: PropertyDescriptor);
 }
 
-export type IWithAllOptions<TComponent> = IWithTimeFunctions<TComponent>;
-
-export type IWithAndAllOptions<TComponent> = IWith<TComponent> & IWithAllOptions<TComponent>;
-
-export interface IWithTimeFunctions<TComponent> {
-    Debounce(timeMs: number): IWithAndAllOptions<TComponent>;
+export interface IWithParams<TComponent> extends IMethodDecorator<TComponent> {
+    Debounce(timeMs: number): IWithParams<TComponent>;
+    CallOnInit(): IWithParams<TComponent>;
+    If(predicate: (state: TComponent) => boolean): IWithParams<TComponent>;
+    IfNotEqualNull(): IWithParams<TComponent>;
 }
 
-export interface IWithCallOnInit<TComponent> {
-    CallOnInit(): IWith<TComponent>;
+export interface IWithActionParams<TComponent> extends IMethodDecorator<TComponent> {
+    Debounce(timeMs: number): IMethodDecorator<TComponent>;
 }
 
-function getWithTimeFunctionsImpl<TComponent>(result: IWithAndAllOptions<TComponent>, parameters: Parameters): IWithTimeFunctions<TComponent> {
+function getWithTimeFunctionsImpl<TRes extends { Debounce: (ms: number)=> any }>(result: TRes, parameters: Parameters): { Debounce: (ms: number)=>any } {
     return {
-        Debounce(debounceMs: number): IWithAndAllOptions<TComponent> {
+        Debounce(debounceMs: number): TRes {
+            checkParameterIsNotSet<Parameters, TRes>(parameters, 'debounceMs', 'Debounce');
+            
             if(debounceMs == null || debounceMs <= 0){
                 throw new Error("Debounce time should be greater than zero");
             }            
             parameters.debounceMs = debounceMs;
             return result;
         }
+    };
+}
+
+function buildPredicate<TComponent>(propNames: (keyof S<TComponent>)[], notNull: boolean, predicate: ((s: any) => boolean) | undefined): ((s: any) => boolean) | undefined {
+    if (!notNull && predicate == null) {
+        return undefined;
+    }
+    return (state: any) => {
+        if(state == null) {
+            return false;
+        }
+        if(predicate != null && !predicate(state)) {
+            return false;
+        }
+        if(notNull && propNames != null) {
+            for(const p of propNames) {
+                if(state[p] == null) {
+                    return false;
+                }
+            }
+        }
+        return true;
     };
 }
 
@@ -161,4 +198,10 @@ function buildDebounceActionModifierFun<TComponent, TAction extends StateActionB
     }
 
     return debounceModifierFun;
+}
+
+function checkParameterIsNotSet<T, TI>(p: T, k: keyof T, paramName: keyof TI) {
+    if(p?.[k] !== undefined) {
+        throw new Error(`function ${paramName?.toString()}() has been called several times`);
+    }
 }

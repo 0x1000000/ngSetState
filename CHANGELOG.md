@@ -1,6 +1,18 @@
 ## 3.0.0
 * **BREAKING CHANGE** dependency on angular was removed as well as In, Out decorators. That approach does not work anymore in the modern versions of angular since they actively utilize own version of typescript to prepare components is design time instead of adding metadata in runtime (which is controversial).
 * support of observables and subjects
+* **Actions**
+  * **StateActionBase** - base class for an "Action"
+  * **WithAction(TAction)** - decorator for action modifier
+  * **WithActionAsync(TAction)** - async decorator for action modifier
+  * **StateDiff** - new type for modifier results (includes actions)
+* **@WithSharedAsSource(...)** - new decorator 
+* **@WithSharedAsTarget(...)** - new decorator
+* **...OnConcurrentLaunchThrowError()** - new option for async modifiers 
+* **...PreSet(...)** - new option for async modifiers
+* **...CallOnInit()** - new option for sync modifiers
+* **...If(...).IfNotEqualNull()** - new options for sync modifiers
+* **onError** - handler for (async) errors (can be set in options)
 
 ## 2.0.1
 * **BUG FIX**: Properties bound to a shared state now takes initial value from a bounded property.

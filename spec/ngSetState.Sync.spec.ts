@@ -1,4 +1,4 @@
-﻿import { With, WithStateBase, Calc } from "../src/index";
+﻿import { With, WithStateBase, Calc, ComponentState, StateDiff, StateTracking, IncludeInState } from "../src/index";
 import { } from "jasmine";
 import { EventEmitter } from "./helpers";
 
@@ -130,6 +130,56 @@ describe('Synchronous tests', () => {
         expect(component.state.sub).toBe(-4);
         expect(component.state.summSub).toBe(6);
     });
+});
+
+
+it('If predicate', () => {
+
+    @StateTracking({immediateEvaluation: true, includeAllPredefinedFields: true})
+    class Component {
+
+        arg1: number|undefined;
+
+        arg2: number|undefined;
+
+        sum: number|undefined;
+
+        counter = 0;
+
+        @With('arg1', 'arg2').IfNotEqualNull().CallOnInit()
+        static calcSum(s: ComponentState<Component>): StateDiff<Component> {
+            return {
+                sum: s.arg1! + s.arg2!,
+                counter: s.counter + 1
+            };
+        }
+
+        @With<Component>('arg1', 'arg2').If(s => s.counter >= 2).CallOnInit()
+        static calcSum2(s: ComponentState<Component>): StateDiff<Component> {
+            return {
+                sum: s.arg1! + s.arg2! + 100,
+                counter: s.counter + 1
+            };
+        }
+    }
+
+    const c = new Component();
+
+    expect(c.counter).toBe(0);
+    c.arg1 = 2;
+    expect(c.counter).toBe(0);
+    c.arg1 = 3;
+    expect(c.counter).toBe(0);
+    c.arg2 = 2;
+    expect(c.counter).toBe(1);
+    expect(c.sum).toBe(5);
+    c.arg2 = undefined;
+    expect(c.counter).toBe(1);
+    expect(c.sum).toBe(5);
+
+    c.arg2 = 7;
+    expect(c.counter).toBe(3);
+    expect(c.sum).toBe(110);
 });
 
 class TestComponent extends WithStateBase<TestState> {
