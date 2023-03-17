@@ -1,7 +1,7 @@
 ﻿import { WithAsync, AsyncInit, WithStateBase, ComponentStateDiff, IncludeInState, StateTracking, initializeImmediateStateTracking, AsyncContext} from "../src/index";
 import { } from "jasmine";
 import { PromiseList, delayMs } from './helpers';
-import { IStateHandler, StateDiff } from "../src/api/state_tracking";
+import { getStateHandler, IStateHandler, StateDiff } from "../src/api/state_tracking";
 
 describe('Asynchronous tests: OnConcurrentLaunch...', () => {
 
@@ -448,7 +448,7 @@ describe('If,Finally', () => {
 
         s.value = 1;
 
-        await s.handler.whenAll();
+        await getStateHandler(s).whenAll();
 
         expect(s.value).toBe(3);
         expect(s.error?.message).toBeFalsy();

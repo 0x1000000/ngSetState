@@ -12,8 +12,23 @@ A library that helps developing angular components in a more functional style wh
 ## Table of Contents
 
 1. [Get Started](#get_satrted)
-2. [Advantages of using the library](#advantages)
+2. [Glossary](#glossary)
 3. [API](#api)
+   - [Mapped Types]()
+   - [Initialization]()
+   - [Decorators]()
+      - [@With]()
+      - [@WithAsync]()
+      - [@WithAction]()
+      - [@WithActionAsync]()
+      - [@WithSharedAsSource]()
+      - [@WithSharedAsTarget]()
+      - [@AsyncInit]()
+      - [@Emitter]()
+      - [@BindToShared]()
+3. [Examples](#examples)
+   - [Shared Component]()
+
 <a name="get_satrted"/>
 
 ## 1. Get Started
@@ -24,302 +39,548 @@ A library that helps developing angular components in a more functional style wh
 npm install ng-set-state
 ```
 
-**Step 2:** Create a simple greeting component:
+**Step 2:** Create a component with state tracking:
 
-```html
-<div>  
-  <h1>Greeting Form</h1>
-  <div>
-    <label for="ni">Name</label><br />
-    <input [(ngModel)]="userName" id="ni" />
-  </div>
-  <h1>{{greeting}}</h1>
-</div>
-```
 ```ts
-import { Component } from '@angular/core';
+class Component {
+    constructor() {
+        initializeImmediateStateTracking(this);
+    }
 
-@Component({
-  selector: 'app-greeting-form',
-  templateUrl: './greeting-form.component.html'
-})
-export class GreetingFormComponent {
-  userName: string = "";
-  greeting:  string = "";
-}
-```
+    arg1: number = 0;
 
-**Step 3:** Add **StateTracking** decorator:
-```ts
-import { Component } from '@angular/core';
-import { StateTracking } from 'ng-set-state';
+    arg2: number = 0;
 
-@Component({
-  selector: 'app-greeting-form',
-  templateUrl: './greeting-form.component.html'
-})
-@StateTracking()
-export class GreetingFormComponent {
-  userName: string = "";
-  greeting:  string = "";
-}
-```
+    readonly sum: number = 0;
 
-**Step 4:** Add a state transition function which will generate greetings:
-```ts
-import { Component } from '@angular/core';
-import { StateTracking, With, ComponentState, ComponentStateDiff } from 'ng-set-state';
+    readonly resultString: string = '';
 
-@Component({
-  selector: 'app-greeting-form',
-  templateUrl: './greeting-form.component.html'
-})
-@StateTracking()
-export class GreetingFormComponent {
-  userName: string = "";
-  greeting:  string = "";
+    @With('arg1', 'arg2')
+    static calcSum(state: ComponentState<Component>): StateDiff<Component> {
+        return {
+            sum: state.arg1 + state.arg2
+        };
+    }
 
-  @With("userName")
-  static genGreeting(currentState: State): NewState
-  {
-      return {
-        greeting: `Hello ${currentState.userName}!`
-      };
-  }
+    @With('sum')
+    static prepareResultString(state: ComponentState<Component>): StateDiff<Component> {
+        return {
+            resultString: `Result: ${state.sum}`
+        };
+    }    
 }
 
-type State = ComponentState<GreetingFormComponent>;
-type NewState = ComponentStateDiff<GreetingFormComponent>;
+const component = new Component();
+
+component.arg1 = 3;
+console.log(component.resultString);
+//Result: 3
+
+component.arg2 = 2;
+console.log(component.resultString);
+//Result: 5
 ```
-**Step 5:** Make it asynchronous
-```ts
-@With("userName").Debounce(1000/*ms*/)
-```
 
----
-**[The greeting application code on stackblitz.com...](https://stackblitz.com/edit/set-state-greet)**
+All the class properties form a dependency graph:
+* **sum** depends on **arg1** and **arg2**
+* **resultString** depends on **sum**
 
----
+Once any argument has been changed, all dependencies are recalculated (immediately or through *setTimeout*)
 
-<a name="advantages"/>
+<a name="glossary"/>
 
-## 2. Advantages of using the library
+## 2. Glossary
 
-1. __Performance__ – the angular change detection will check only already evaluated properties 
-2. __Independence__ – the library does not actually depend on angular, so if you decided to move to another framework (e.g. Vue) you will be able to reuse your state logic
-3. __Quality of reusable components__ – Angular allows having several input parameters which can be changed independently and maintaining all possible combinations is usually not very simple (ngOnInit, ngOnChange, property setters), so often developers take into consideration just common scenarios, which is not great when you develop reusable components. The library naturally simplifies handling different combinations of input parameters, since it implicitly creates a dependency graph over all state properties.
+* **Component** - class for which state tracking is initialized.
+* **State** - snapshot of component property values.
+* **State Difference** - subset of state.
+* **Modifier** - pure function that receives a state and returns a state difference which will patch the component property values. Modifiers are called when the component property values have changed and the current state is not equal to the previous one.
+* **Action** - entity that causes modifier firing without changing the component property values. The entity instance is passed into the triggered modifiers.
 
 <a name="api"/>
 
 ## 3. API
-* ### Decorators
-  * **@StateTracking&lt;TComponent&gt;**(options)
-  ```ts
-    {
-        immediateEvaluation?: boolean,
-        includeAllPredefinedFields?: boolean,
-        onStateApplied?: (component, state, previousState) => void,
-        getInitialState?: (component) => Object,
-        setHandler?: (component, handler: IStateHandler<>) => void,
-        getSharedStateTracker?: (component) => Object | Object[],
+* ### Mapped types
+  * **ComponentState&lt;T&gt;** - removes all methods, private properties. Converts observables into plain properties. All members are compulsory and readonly.
+  * **ComponentStateDiff&lt;T&gt;** - removes all methods, private properties, observables. Converts subjects and event emitters into plain properties. All members are optional and readonly.
+    ```ts
+    class Component {
+        member1: number;
+        member2: Observable<string>;
+        member3: Subject<number>;
+        private member4: number;
+        method1(){}
     }
-  ```
-     * Optional parameters:
-       * **immediateEvaluation** (default **false**) - if **true** then all transition will be called immediately;
-       * **includeAllPredefinedFields** (default **false**) - if **true** then all fields with some initial value (including **null**) will be presented in state objects;
-       * **onStateApplied** - callback function which will be called when a new 
-       consistent state is evaluated and applied to the component;
-       * **setHandler** - callback function which will be called right after the component is created and a handler object will be passed as an argument
-       ```ts
-       export interface IStateHandler<TComponent> {
-         getState(): ComponentState<TComponent>;
 
-         modifyStateDiff(diff: ComponentStateDiff<TComponent>);
-
-         subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
-
-         whenAll(): Promise<any>;
-
-         release();
-       }
-       ```
-        * **getState** - returns a current immutable (freezed) state object;
-        * **modifyStateDiff** - initializes a state change cycle;
-        * **subscribeSharedStateChange** makes the component react on a shared state changes
-        * **whenAll** - returns a promise which will be resolved when all asynchronous operations are complete;
-        * **release** - cancels all asynchronous operations and unsubscribes from shared states changes
-  * Alternatively to **@StateTracking** you can call the following function in the component constructor:
-  ```ts
-  constructor(){
-    const handler = initializeStateTracking<T>(this, {..options..});
-  }  
-  ```
-  * Optional options:  
-  ```ts
-  {
-    immediateEvaluation?: boolean | null,
-    includeAllPredefinedFields?: boolean | null,
-    onStateApplied?: ((state, previousState) => void) | null,
-    initialState?: ComponentStateDiff<TComponent> | null,
-    sharedStateTracker?: Object | Object[] | null,
-  }
-  ```
-  * **@BindToShared([propName],[index])** - It marks a component field to be a proxy to a shared tracker filed. 
-    * **propName** - specifies a shared property name in case if the name differs.
-    * **index** - if a component is bound to several shared trackers then this option will help to solve a possible naming conflict.
-
-  * **@With&lt;TState&gt;(...propNames: (keyof TState)[])** - It marks a function that returns a new state difference when at least one value of passed members has changed (a state with modified properties will be passed as a parameter). The state difference will be applied to a current state and the library will check all functions, marked with the decorator, one more. The process will continue until a component state becomes stable or a limit of cycles (default value equals 1000) is reached. Example:
-  ```ts
-    @With("someProperty1", "someProperty2",)
-    public static calc3(currentState: SomeState): Partial<SomeState> | null {
-        return {
-            someProperty3: currentState.someProperty1 + currentState.someProperty2,
-        }
-    }    
-  ```
-
-  You can also get access to a previous state (2-nd argument) and changes between a current sate and the previous one (3-rd argument)
-  ```ts
-    @With("someProperty1", "someProperty2",)
-    public static calc3(
-        currentState: SomeState, 
-        previousState: SomeState, 
-        changes: Partial<SomeState>): Partial<SomeState> | null {
-
-        return {
-            someProperty3: currentState.someProperty1 + currentState.someProperty2,
-        }
+    type State = ComponentState<Component>;
+    //Equals to
+    type State = {
+      readonly member1: number;
+      readonly member2: string | undefined;
+      readonly member3: number | undefined;
     }
-  ```
-   * **WithAsync&lt;TState&gt;(...propNames: (keyof TState)[])** - similar to __@Width(...)__ but this decorator marks an asynchronous function which returns a promise to state change. The function receives a function as a parameter (instead of an object) which returns a current state:
-   ```ts
-        @WithAsync("data")
-        public static async init(getState: ()=> State): Promise<Partial<State|null>>{
-            const initialState: State = getState();
-            await initialState.api.save(initialState.data);
-            return null;
-        }
+
+    type StateDiff = ComponentStateDiff<Component>;
+    //Equals to
+    type StateDiff = {
+      member1?: number;
+      member3?: number;
+    }
     ```
-    
-    the decorator has the following modifiers:
-    * OnConcurrentLaunchCancel()
-    * OnConcurrentLaunchPutAfter()
-    * OnConcurrentLaunchReplace()
-    * OnConcurrentLaunchConcurrent()
-    * OnErrorThrow()
-    * OnErrorForget()
-    * OnErrorCall(method: (currentState: TState, error: any) => Partial<TState> | null)
-    * Locks(...lockIds: string[])
-    * Debounce(..ms..:number)
+  * **StateDiff&lt;T&gt;** - **ComponentStateDiff&lt;T&gt;** or array of actions where the first element can be **ComponentStateDiff&lt;T&gt;**
 
-  You can also get access to a previous state (2-nd argument) and changes between a current sate and the previous one (3-rd argument) like in __@With__ decorator.
-
-  The first function also implements __AsyncContext__ interface, so you can check if an asynchronous "transition" function is cancelled:
+* ### Initialization
+  In order to make modifiers and actions working within a class this class should be initialized  to keep track of its state. It can be done by calling **initializeImmediateStateTracking** or **initializeStateTracking** functions e.g.
   
   ```ts
-   @WithAsync("editingData").OnConcurrentLaunchReplace()
-   public static async validate(getState: AsyncContext): Promise<Partial<State|null>>{
-         const initialState: State = getState();
-         const correct = await initialState
-             .api.validate(initialState.editingData);
-
-         if(getState.isCancelled()) {
-             //editingData has changed during api.validate
-             //no need to continue
-             return null;
-         }
-
-         const correct2 = await initialState
-             .api2.validate(initialState.editingData);
-
-         return { valid: correct1 && correct2 };
-     }
+  class Component {
+    constructor() {
+        initializeStateTracking(this,{/*options*/});
+    }
+  }
   ```
-  * **Emitter()**: decorator for state fields. If this decorator is specified for some state filed that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference. The decorator can be used to create a "trigger" which will be used to perform some action:
+  where **options** are:
   ```ts
-  class SomeState{
-      ... 
-      @Emitter()
-      public readonly someAction: string;
-      ...
+  export type InitStateTrackingOptions<TComponent> = {
+    immediateEvaluation?: boolean | null,
+    includeAllPredefinedFields?: boolean | null,
+    initialState?: ComponentStateDiff<TComponent> | null,
+    sharedStateTracker?: Object | Object[] | null,
+    onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
+    errorHandler?: ((e: Error) => boolean) | null
+  }
+  ```
+  * **immediateEvaluation** - indicates if modifiers will be called immediately or trough *setTimeout* (avoids redundant calls). Default value is **false** for **initializeStateTracking** and **true** for **initializeImmediateStateTracking**.
+  * **includeAllPredefinedFields** - by default only properties bound to modifiers are included in component property value snapshots (states). This options allows including all properties that had some explicit values (even **null** or **undefined**) at the moment of the initialization. This might be useful to provide some context for modifiers. Default value is **false** for **initializeStateTracking** and **true** for **initializeImmediateStateTracking**
+  * **initialState** - initial snapshot of component property values that will be applied at the initialization.
+  * **sharedStateTracker** - reference to other components with initialized state tracking. changes and actions at that components can be reflected in the initializing component. component can also cause state modification and action firing in the shared components.
 
-      @With("someAction")
-      public static doSomeAction(currentState: SomeState): Partial<SomeState> {
-          ...
-      }
-  } 
-  ```
-    Also it can be can be used together with **@Out()** decorator to emit the same value from your component:
+  * **onStateApplied** - callback function which is called right after a new state has been applied.
+
+  * **errorHandler** - callback function which is called when some error has been thrown in modifiers or action handlers
+
+  **initializeStateTracking** and **initializeImmediateStateTracking** functions returns a reference to so-called **stateHandler**:
+
   ```ts
-  class SomeState{
-      ... 
-      @Out()
-      @Emitter()
-      public readonly outProperty: string;
-      ...
-  } 
+  class Component {
+
+    stateHandler: IStateHandler<Component>
+
+    constructor() {
+       this.stateHandler = initializeStateTracking(this,{/*options*/});
+    }
+  }
   ```
-   * **Calc&lt;TState, Prop extends keyof TState&gt;((propNames: (keyof TState)[], func: (currentSate: TState, previousSate: TState, diff: Partial<TState>) => TState[Prop]): any** - The decorator is supposed to be defined under some state property. It specifies a function which will be called when one of the specified properties (__propNames__ array) have been changed (a state instance with updated properties will be a first argument for the function). A result of the function will be 
-   assigned to the property. 
-   * **AsyncInit&lt;TState&gt;()** - marks an asynchronous methods which will be called when a component created:
-   ```ts
-        @AsyncInit().Locks("init")
-        public static async init(getState: ()=> State): Promise<Partial<State|null>>{
-            const initialState: State = getState();
-            const data = await initialState.api.getData();
-            return {data: data};
+
+  this is an object that provides API to manipulate the state tracking:
+  ```ts
+  export interface IStateHandler<TComponent> {
+    getState(): ComponentState<TComponent>;
+    modifyStateDiff(diff: StateDiff<TComponent>);
+    subscribeSharedStateChange(): ISharedStateChangeSubscription | null;
+    whenAll(): Promise<any>;
+    execAction<TAction extends StateActionBase>(action: TAction|TAction[]): boolean;
+    release();
+  }
+  ```
+  * **getState()** returns a current snapshot of component property values (included into the state tracking)
+  * **modifyStateDiff(diff: StateDiff<TComponent>);** - patches the current state and fires corresponding modifiers.
+  * **subscribeSharedStateChange()** - if the component is connected with some shared components then calling this function will subscribe the current component on changes and actions in the shared ones.
+  * **whenAll()** - returns a promise which is complete when all asynchronous modifiers are completed.
+  * **execAction(...)** - fires execution of the passed actions
+  * **release()** - unsubscribes from all shared components and Observables
+* ### Decorators
+  * **@With** - decorator that marks a static(!) class method to be called when any of the specified properties have been just changed. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
+
+    ```ts
+    //Short syntax
+    @With('arg1', 'arg2')
+    static calc(state: ComponentState<Component>): StateDiff<Component> {
+      return {
+        sum: state.arg1 + state.arg2
+      };
+    }
+
+    //Full syntax
+    @With<Component>('arg1', 'arg2')
+        .Debounce(10/*ms*/)//This modifier is called when the specified properties are stable for 10ms
+        .CallOnInit()//Forcibly call right after the initialization
+        .If(s => s.arg1 > 0)//Call only is the condition is true
+        .IfNotEqualNull()//Call only all the specified properties are not equal null
+    static calcSum(
+        state: ComponentState<Component>,//Current state
+        previousState: ComponentState<Component>,//Previous state
+        diff: ComponentStateDiff<Component>//Diff between current and previous
+        ): StateDiff<Component> {
+            
+        return [{
+            sum: state.arg1 + state.arg2
+        }, new Action1(), new Action2()];
+    }
+    ```
+  * **@WithAsync** - decorator that marks a static(!) class method to be called when any of the specified properties have been just changed. The method should return a promise with some new values that will be patched (when the promise is complete) to the component properties and a new state will be formed.
+    ```ts
+    //Short syntax
+    @WithAsync<Component>('arg1', 'arg2')
+    static async calcAsync(getState: AsyncContext<Component>): Promise<StateDiff<Component>> {
+      const initialState = getState();
+
+      await initialState.service.doSomethingAsync();
+
+      const state = getState();
+
+      return {
+        sum: state.arg1 + state.arg2
+      };
+    }
+
+    //Full syntax
+      @WithAsync<Component>('arg1', 'arg2')
+        .Debounce(10/*ms*/)//Modifier is called when the specified properties are stable for 10ms
+        .Locks('res1', 'res2')//Modifier will not be called while one the resources are locked by other modifiers
+        .If(s=>s.arg1 > 2)//Modifier is called is the condition is true
+        .PreSet(s => ({loading: true}))//Updates state right before calling the modifier
+        .OnConcurrentLaunchReplace()//Behavior on collision
+        //or .OnConcurrentLaunchPutAfter()
+        //or .OnConcurrentLaunchCancel()
+        //or .OnConcurrentLaunchConcurrent()
+        //or .OnConcurrentLaunchThrowError()
+        .OnErrorCall(s => ({isError: true}))//Behavior on error
+        //or .OnErrorForget()
+        //or .OnErrorThrow()
+        .Finally(s => ({loading: true}))//Updates state right after calling the modifier
+
+    static async calcAsync(
+        getState: AsyncContext<Component>,//Functions that returns the current state
+        previousState: ComponentState<Component>,//Previous state
+        diff: ComponentStateDiff<Component>//Diff between current and previous 
+        ): Promise<StateDiff<Component>> {
+        const initialState = getState();
+
+        await initialState.service.doSomethingAsync();
+
+        //Modifier could be canceled due to a collision
+        if(getState.isCancelled()) {
+            return null;
         }
-    ```   
 
-  * **In&lt;TState&gt;(componentProp?: string)** - creates a mapping between some state property and some component input parameter. Changing the input parameter will lead to state modification. Example:
-  ```ts
-  class SomeState{
-      ... 
-      @In()
-      public readonly someProperty: string;
-      ...
-  } 
-  ```
-  the code is equivalent to:
-  ```ts
-  class SomeComponent{
-      ... 
-      @Input()
-      public set someProperty(value: string){
-          this.modifyState("someProperty", value);
-      }
-      ...
-  } 
-  ``` 
-  * **Out&lt;TState&gt;(componentProp?: string)** -creates a mapping between some state parameter and some component output editor. Example:
-  ```ts
-  class SomeState{
-      ... 
-      @Out()
-      public readonly someProperty: string;
-      ...
-  } 
-  ```
-  the code is equivalent to:
-  ```ts
-  class SomeComponent{
-      ... 
-      @Output()
-      public readonly somePropertyChange = new EventEmitter<string>();
-      ...
-      public onAfterStateApplied(previousState: CalculatorState): void {
-          if (this.state.someProperty !== previousState.someProperty) {
-              this.somePropertyChange.emit(this.state.someProperty);
-          }
-      }
-    ...
-  } 
-  ```
-* Classes
+        const state = getState();
 
-    * ### WithStateBase&lt;TState&gt; implements IWithState&lt;TState&gt;
-        * **state: TState** - gets access to a current component state (can be used in markup);
-        * **modifyState(propName: keyof TState, value: any): boolean** - sets a new component state with a new state member value. Other state member will be also changed if they depend on the modified member (see, “With” decorator). If no changes have been detected it will return **false** otherwise **true**.
-        * **modifyStateDiff(diff: Partial&lt;TState&gt;|null): boolean** - sets a new component state with new state member values. Other state member will be also changed if they depend on the modified members (see, “With” directive). If no changes have been detected it will return **false** otherwise **true**.
-        * **onAfterStateApplied?()** - If this method is implemented, it will be called when the component has just moved to a new state. The method can be used to imitate an asynchronous operation (see “Asynchronous operations” (todo)).
-        * **whenAll(): Promise<any>** - Returns a promise which will be resolved when all asynchronous operations finish
+        return [{
+            sum: state.arg1 + state.arg2
+        }, new Action1(), new Action2()];
+    } 
+    ```
+    
+    * Behaviors on collision:
+      * **OnConcurrentLaunchReplace** - latest fired modifier will be used
+      * **OnConcurrentLaunchPutAfter()** - latest planned modifier will be triggered when the running one is completed
+      * **OnConcurrentLaunchCancel()** - latest planned modifier will be discarded if the current one is not yet completed
+      * **OnConcurrentLaunchConcurrent()** - all fired modifiers will work simultaneously
+      * **OnConcurrentLaunchThrowError** - if modifier is triggered if the current one is not yet completed then an error will be thrown
+
+  * **@WithAction** - decorator that marks a static(!) class method to be called when a specified action is asked to be executed. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
+    ```ts
+    class ActionIncreaseArg1By extends StateActionBase {
+        constructor(readonly value: number) {
+            super();
+        }
+    }
+    ```
+    ```ts
+    @WithAction(ActionIncreaseArg1By)
+    static onAction(
+        action: ActionIncreaseArg1By,
+        state: ComponentState<Component>): StateDiff<Component> {
+
+        return {
+            arg1: state.arg1 + action.value
+        };
+    }
+    ```
+
+  * **@WithActionAsync** - similar to **@WithAsync**
+      ```ts
+      @WithActionAsync(ActionIncreaseArg1By)
+      static async onAction(
+          action: ActionIncreaseArg1By,
+          getState: AsyncContext<Component>): Promise<StateDiff<Component>> {
+
+          await getState().service.doSomething();
+
+          const state = getState();
+
+          return {
+              arg1: state.arg1 + action.value
+          };
+      }
+      ```
+  * **@WithSharedAsSource** - decorator that marks a static(!) class method to be called when a specified properties have just changed in the specified shared component. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
+    ```ts
+    @WithSharedAsSource(SharedComponent, 'value').CallOnInit()
+    static onValueChange(arg: WithSharedAsSourceArg<Component, SharedComponent>)        :StateDiff<Component> {
+        return {
+            message: `Shared value is ${arg.currentSharedState.value}`
+        };
+
+        //or
+        //return [{
+        //    message: `Shared value is ${arg.currentSharedState.value}`
+        //}, new Action1(),new Action2(),...];
+    }
+    ```
+  * **@WithSharedAsTarget** - decorator that marks a static(!) class method to be called when a specified properties have just changed in the specified shared component. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
+    ```ts
+    @WithSharedAsTarget(SharedComponent, 'componentValue')
+    static onCmpValueChange(arg: WithSharedAsTargetArg<Component, SharedComponent>): StateDiff<SharedComponent> {
+        return {
+            value: arg.currentState.componentValue * 10
+        };
+        //or
+        //return [{
+        //    value: arg.currentState.componentValue * 10
+        //}, new Action1(),new Action2(),...];
+    }
+    ```
+
+  * **@AsyncInit** - decorator that marks a static(!) class method to be called right after the initialization. The method should return a promise with some new values that will be patched (when the promise is complete) to the component properties and a new state will be formed.
+    ```ts
+    @AsyncInit()
+      //.Locks('res1', 'res2') - similar to @WithAsync
+    static async init(getState: AsyncContext<Component>): Promise<StateDiff<Component>> {
+
+        const state = getState();
+
+        const greetingFormat = await state.services.getGreetingFormat();
+
+        return { greetingFormat };
+
+        //or
+        //return [{ greetingFormat }, new Action1(), new Action2()];
+    }
+    ```
+
+  * **@Emitter()** - decorator for a class property. If this decorator is specified for some class property that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference.
+
+  * **@BindToShared([SharedClass], [sharedPropName],[index])** - It marks a component field to be a proxy to a shared tracker filed.
+    * SharedClass - specifies a shared component type
+    * propName - specifies a shared property name in case if the name differs.
+    * index - if a component is bound to several shared trackers then this option will help to solve a possible naming conflict.
+    ```ts
+    @BindToShared(SharedComponent, 'value')
+    sharedValue: number;
+    ```
+<a name="examples"/>
+
+## 4. Examples
+### Shared Components
+```ts
+class SharedComponent {
+    value: number = 0;
+
+    constructor() {
+        initializeImmediateStateTracking(this);
+    }
+}
+
+class Component {
+                
+    message = '';
+
+    componentValue = 0;
+
+    @BindToShared(SharedComponent, 'value')
+    sharedValue: number;
+
+    constructor(shared: SharedComponent) {
+        initializeImmediateStateTracking(this, {
+            sharedStateTracker: shared
+        }).subscribeSharedStateChange();
+    }
+
+    onDestroy() {
+        releaseStateTracking(this);
+    }
+
+    @WithSharedAsSource(SharedComponent, 'value').CallOnInit()
+    static onValueChange(arg: WithSharedAsSourceArg<Component, SharedComponent>): StateDiff<Component> {
+        return {
+            message: `Shared value is ${arg.currentSharedState.value}`
+        };
+    }
+
+    @WithSharedAsTarget(SharedComponent, 'componentValue')
+    static onCmpValueChange(arg: WithSharedAsTargetArg<Component, SharedComponent>): StateDiff<SharedComponent> {
+        return {
+            value: arg.currentState.componentValue * 10
+        };
+    }
+}
+
+const sharedComponent = new SharedComponent();
+const component = new Component(sharedComponents);
+
+console.log(component.message);
+//Shared value is 0
+
+sharedComponent.value = 7;
+console.log(component.message);
+//Shared value is 7
+
+component.componentValue = 10;
+console.log(component.message);
+//Shared value is 100
+
+component.sharedValue = 10;
+console.log(component.message);
+//Shared value is 10
+
+component.onDestroy();
+```
+### Async
+```ts
+class Component {
+
+    name = '';
+
+    greetingFormat = '';
+
+    greeting = '';
+
+    constructor() {
+        initializeImmediateStateTracking(this);
+    }
+
+    @AsyncInit().Locks('init')
+    static async init(getState: AsyncContext<Component>): Promise<StateDiff<Component>> {
+        await delayMs(100);
+
+        return {
+            greetingFormat: 'Hi, %USER%!'
+        };
+    }
+
+    @WithAsync('name').Locks('init')
+    static async createGreeting(getState: AsyncContext<Component>): Promise<StateDiff<Component>> {
+
+        await delayMs(10);
+
+        const state = getState();
+
+        return {
+            greeting: state.greetingFormat.replace('%USER%', state.name)
+        };
+    }
+}
+
+const component = new Component();
+
+component.name = 'Joe';
+
+await getStateHandler(component).whenAll();
+
+console.log(component.greeting);
+//Hi, Joe!
+```
+### Actions
+```ts
+class ActionA extends StateActionBase {
+    constructor(readonly message: string) {
+        super();
+    }
+}
+
+class ActionB extends StateActionBase {
+    constructor(readonly message: string) {
+        super();
+    }
+}
+
+class ActionS extends StateActionBase {
+    constructor(readonly message: string) {
+        super();
+    }
+}
+
+type Logger = {
+    log: (s: string) => void;
+}
+
+class SharedComponent {
+    stateHandler: IStateHandler<SharedComponent>;
+
+    constructor(readonly logger: Logger) {
+        this.stateHandler = 
+            initializeImmediateStateTracking<SharedComponent>(this);
+    }
+
+    @WithAction(ActionS)
+    static onActionS(action: ActionS, state: ComponentState<SharedComponent>)
+        : StateDiff<SharedComponent> {
+
+            state.logger.log(`Action S with arg "${action.message}"`);
+
+        return [new ActionB(action.message + ' from Shared')];
+    }
+}
+
+class Component {
+    arg = ''
+
+    stateHandler: IStateHandler<Component>;
+
+    constructor(readonly logger: Logger,sharedComponent: SharedComponent) {
+
+        this.stateHandler
+            = initializeImmediateStateTracking<Component>(this, {
+                sharedStateTracker: sharedComponent
+            });
+
+        this.stateHandler.subscribeSharedStateChange();
+    }
+
+    onDestroy() {
+        this.stateHandler.release();
+    }
+
+    @With('arg')
+    static onNameChange(state: ComponentState<Component>): StateDiff<Component> {
+        return [new ActionA(state.arg)];
+    }
+
+    @WithAction(ActionA)
+    static onActionA(action: ActionA, state: ComponentState<Component>): StateDiff<Component> {
+
+        state.logger.log(`Action A with arg "${action.message}"`);
+
+        return [new ActionB(action.message), new ActionS(action.message)];
+    }
+
+    @WithAction(ActionB)
+    static onActionB(action: ActionB, state: ComponentState<Component>): StateDiff<Component> {
+        state.logger.log(`Action B with arg "${action.message}"`);
+        return null;
+    }
+}
+
+const logger: Logger = {
+    log: (m) => console.log(m)
+};
+
+const sharedComponent = new SharedComponent(logger);
+
+const component = new Component(logger, sharedComponent);
+
+component.arg = "arg1";
+//Action B with arg "arg1"
+//Action S with arg "arg1"
+//Action B with arg "arg1 from Shared"
+
+component.stateHandler.execAction(new ActionS('arg2'));
+//Action S with arg "arg2"
+//Action B with arg "arg2 from Shared"
+
+sharedComponent.stateHandler.execAction(new ActionA('arg3'));
+//Action A with arg "arg3"
+//Action B with arg "arg3"
+```

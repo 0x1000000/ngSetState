@@ -810,6 +810,9 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
             currentActions = StateTrackerContext.removeTypeDuplicatesReverse(currentActions);
 
             const nextActions: StateActionBase[] = [];
+
+            const handledAction = new Set<StateActionBase>();
+
             for(const action of currentActions) {
 
                 if(!(action instanceof StateActionBase)) {
@@ -820,6 +823,7 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                 if (modifiers.length > 0) {
 
                     result = true;
+                    handledAction.add(action);
 
                     let asyncModifiers: AsyncActionModifier<TComponent, StateActionBase>[] | undefined;
 
@@ -849,16 +853,16 @@ export class StateTrackerContext<TComponent extends Object> implements IStateHol
                     }
                 }
 
-                if (sharedComponents != null && invokeShared) {
+                if (sharedComponents != null && invokeShared && !handledAction.has(action)) {
                     for (const sc of sharedComponents) {
                         if (StateTrackerContext.tryGetStateHandler(sc)?.execAction(action)) {
                             result = true;
                         }
                     }
                 }
-                if (this._subscribers != null && this._subscribers.length > 0) {
+                if (this._subscribers != null && this._subscribers.length > 0  && !handledAction.has(action)) {
                     for (const s of this._subscribers) {
-                        if( s.execAction(action) ) {
+                        if(s.execAction(action)) {
                             result = true;
                         }
                     }

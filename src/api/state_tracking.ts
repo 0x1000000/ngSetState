@@ -35,9 +35,9 @@ export type StateTrackingOptions<TComponent> = {
 export type InitStateTrackingOptions<TComponent> = {
     immediateEvaluation?: boolean | null,
     includeAllPredefinedFields?: boolean | null,
-    onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     initialState?: ComponentStateDiff<TComponent> | null,
     sharedStateTracker?: Object | Object[] | null,
+    onStateApplied?: ((state: ComponentState<TComponent>, previousState: ComponentState<TComponent>) => void) | null,
     errorHandler?: ((e: Error) => boolean) | null
 }
 
