@@ -14,20 +14,23 @@ A library that helps developing angular components in a more functional style wh
 1. [Get Started](#get_satrted)
 2. [Glossary](#glossary)
 3. [API](#api)
-   - [Mapped Types]()
-   - [Initialization]()
-   - [Decorators]()
-      - [@With]()
-      - [@WithAsync]()
-      - [@WithAction]()
-      - [@WithActionAsync]()
-      - [@WithSharedAsSource]()
-      - [@WithSharedAsTarget]()
-      - [@AsyncInit]()
-      - [@Emitter]()
-      - [@BindToShared]()
+   - [Mapped Types](#api)
+   - [Initialization](#initialization)
+   - [Decorators](#decorators)
+      - [@With](#with)
+      - [@WithAsync](#with_async)
+      - [@WithAction](#with_action)
+      - [@WithActionAsync](#with_action_async)
+      - [@WithSharedAsSource](#with_shared_as_source)
+      - [@WithSharedAsTarget](#with_shared_as_target)
+      - [@AsyncInit](#async_init)
+      - [@Emitter](#emitter)
+      - [@BindToShared](#bind_to_shared)
+      - [@IncludeInState](#include_in_state)
 3. [Examples](#examples)
-   - [Shared Component]()
+   - [Shared Component](#examples)
+   - [Async](#async)
+   - [Actions](#actions)
 
 <a name="get_satrted"/>
 
@@ -129,6 +132,8 @@ Once any argument has been changed, all dependencies are recalculated (immediate
     ```
   * **StateDiff&lt;T&gt;** - **ComponentStateDiff&lt;T&gt;** or array of actions where the first element can be **ComponentStateDiff&lt;T&gt;**
 
+<a name="initialization" />
+
 * ### Initialization
   In order to make modifiers and actions working within a class this class should be initialized  to keep track of its state. It can be done by calling **initializeImmediateStateTracking** or **initializeStateTracking** functions e.g.
   
@@ -189,7 +194,13 @@ Once any argument has been changed, all dependencies are recalculated (immediate
   * **whenAll()** - returns a promise which is complete when all asynchronous modifiers are completed.
   * **execAction(...)** - fires execution of the passed actions
   * **release()** - unsubscribes from all shared components and Observables
+  
+<a name="decorators" />
+
 * ### Decorators
+
+<a name="with"/>
+
   * **@With** - decorator that marks a static(!) class method to be called when any of the specified properties have been just changed. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
 
     ```ts
@@ -218,6 +229,9 @@ Once any argument has been changed, all dependencies are recalculated (immediate
         }, new Action1(), new Action2()];
     }
     ```
+
+<a name="with_async"/>
+
   * **@WithAsync** - decorator that marks a static(!) class method to be called when any of the specified properties have been just changed. The method should return a promise with some new values that will be patched (when the promise is complete) to the component properties and a new state will be formed.
     ```ts
     //Short syntax
@@ -279,6 +293,9 @@ Once any argument has been changed, all dependencies are recalculated (immediate
       * **OnConcurrentLaunchConcurrent()** - all fired modifiers will work simultaneously
       * **OnConcurrentLaunchThrowError** - if modifier is triggered if the current one is not yet completed then an error will be thrown
 
+
+<a name="with_action"/>
+
   * **@WithAction** - decorator that marks a static(!) class method to be called when a specified action is asked to be executed. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
     ```ts
     class ActionIncreaseArg1By extends StateActionBase {
@@ -299,6 +316,8 @@ Once any argument has been changed, all dependencies are recalculated (immediate
     }
     ```
 
+<a name="with_action_async"/>
+
   * **@WithActionAsync** - similar to **@WithAsync**
       ```ts
       @WithActionAsync(ActionIncreaseArg1By)
@@ -315,7 +334,10 @@ Once any argument has been changed, all dependencies are recalculated (immediate
           };
       }
       ```
-  * **@WithSharedAsSource** - decorator that marks a static(!) class method to be called when a specified properties have just changed in the specified shared component. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
+
+<a name="with_shared_as_source"/>
+
+* **@WithSharedAsSource** - decorator that marks a static(!) class method to be called when a specified properties have just changed in the specified shared component. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
     ```ts
     @WithSharedAsSource(SharedComponent, 'value').CallOnInit()
     static onValueChange(arg: WithSharedAsSourceArg<Component, SharedComponent>)        :StateDiff<Component> {
@@ -329,6 +351,9 @@ Once any argument has been changed, all dependencies are recalculated (immediate
         //}, new Action1(),new Action2(),...];
     }
     ```
+
+<a name="with_shared_as_target"/>
+
   * **@WithSharedAsTarget** - decorator that marks a static(!) class method to be called when a specified properties have just changed in the specified shared component. The method should return some new values that will be patched to the component properties and a new state will be formed. It also can return new actions to be executed.
     ```ts
     @WithSharedAsTarget(SharedComponent, 'componentValue')
@@ -342,6 +367,8 @@ Once any argument has been changed, all dependencies are recalculated (immediate
         //}, new Action1(),new Action2(),...];
     }
     ```
+
+<a name="async_init"/>
 
   * **@AsyncInit** - decorator that marks a static(!) class method to be called right after the initialization. The method should return a promise with some new values that will be patched (when the promise is complete) to the component properties and a new state will be formed.
     ```ts
@@ -360,16 +387,25 @@ Once any argument has been changed, all dependencies are recalculated (immediate
     }
     ```
 
+<a name="emitter"/>
+
   * **@Emitter()** - decorator for a class property. If this decorator is specified for some class property that means that all side effects will happen (@With, @WithAsync, @Out) even if a new value equals to the previous one during analyzing a new state difference.
+
+<a name="bind_to_shared" />
 
   * **@BindToShared([SharedClass], [sharedPropName],[index])** - It marks a component field to be a proxy to a shared tracker filed.
     * SharedClass - specifies a shared component type
     * propName - specifies a shared property name in case if the name differs.
     * index - if a component is bound to several shared trackers then this option will help to solve a possible naming conflict.
+    
     ```ts
     @BindToShared(SharedComponent, 'value')
     sharedValue: number;
     ```
+<a name="include_in_state">
+
+* **@IncludeInState()** - It marks a component field to be always included into snapshots.
+
 <a name="examples"/>
 
 ## 4. Examples
@@ -437,6 +473,9 @@ console.log(component.message);
 
 component.onDestroy();
 ```
+
+<a name="async"/>
+
 ### Async
 ```ts
 class Component {
@@ -482,6 +521,8 @@ await getStateHandler(component).whenAll();
 console.log(component.greeting);
 //Hi, Joe!
 ```
+<a name="actions"/>
+
 ### Actions
 ```ts
 class ActionA extends StateActionBase {
