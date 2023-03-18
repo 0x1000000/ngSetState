@@ -31,6 +31,7 @@ A library that helps developing angular components in a more functional style wh
    - [Shared Component](#examples)
    - [Async](#async)
    - [Actions](#actions)
+   - [Using in React](#using-in-react)
 
 <a name="get_satrted"/>
 
@@ -624,4 +625,140 @@ component.stateHandler.execAction(new ActionS('arg2'));
 sharedComponent.stateHandler.execAction(new ActionA('arg3'));
 //Action A with arg "arg3"
 //Action B with arg "arg3"
+```
+<a name="using-in-react"/>
+
+### Using in React
+```ts
+import React, { ChangeEventHandler } from 'react';
+import './App.css';
+import { ComponentState, With, IStateHandler, StateDiff, initializeImmediateStateTracking } from 'ng-set-state';
+
+type State = ComponentState<ComponentStateTrack>;
+type NewState = StateDiff<ComponentStateTrack>;
+
+class ComponentStateTrack {
+    arg1Text = '';
+    arg1Status = 'Empty';
+    arg2Text = '';
+    arg2Status = 'Empty';
+    sumText = 'No proper args'
+
+    arg1: number|null = null;
+    arg2: number|null = null;
+
+    stateHandler: IStateHandler<ComponentStateTrack>;
+
+    constructor(stateSetter: (s: State) => void) {
+      this.stateHandler = initializeImmediateStateTracking<ComponentStateTrack>(this,
+        {
+            onStateApplied: (s) => stateSetter(s)
+        });
+    }
+
+    @With('arg1Text')
+    static parseArg1(state: State): NewState {
+
+        if (!state.arg1Text) {
+            return {
+                arg1: null,
+                arg1Status: "Empty"
+            }
+        }
+
+        const arg1 = parseInt(state.arg1Text);
+        if(isNaN(arg1)) {
+            return {
+                arg1: null,
+                arg1Status: "Invalid"
+            };
+        } else {
+            return {
+                arg1,
+                arg1Status: "Ok"
+            };
+        }
+    }
+
+    @With('arg2Text')
+    static parseArg2(state: State): NewState {
+        if (!state.arg2Text) {
+            return {
+                arg1: null,
+                arg1Status: "Empty"
+            }
+        }
+
+        const arg2 = parseInt(state.arg2Text);
+        if(isNaN(arg2)) {
+            return {
+                arg2: null,
+                arg2Status: "Invalid"
+            };
+        } else {
+            return {
+                arg2,
+                arg2Status: "Ok"
+            };
+        }
+    }
+
+    @With('arg1', 'arg2')
+    static setCalcStatus(state: State): NewState {
+        if (state.arg1 == null || state.arg2 == null) {
+            return {
+                sumText: 'No proper args'
+            };
+        } else {
+            return {
+                sumText: 'Calculating...'
+            }
+        }
+    }
+
+    @With('arg1', 'arg2').Debounce(2000/*ms*/)
+    static setCalcResult(state: State): NewState {
+        if (state.arg1 != null && state.arg2 != null) {
+            return {
+                sumText: (state.arg1 + state.arg2).toString()
+            };
+        }
+        return null;
+    }
+}
+
+export class App extends React.Component<any, State> {
+
+  readonly stateTrack: ComponentStateTrack;
+
+  constructor(props: any) {        
+      super(props);
+      this.stateTrack = new ComponentStateTrack(s => this.setState(s));
+      this.state = this.stateTrack.stateHandler.getState();
+  }
+
+  arg1Change: ChangeEventHandler<HTMLInputElement> = (ev) => {
+      this.stateTrack.arg1Text = ev.target.value;
+  };
+
+  arg2Change: ChangeEventHandler<HTMLInputElement> = (ev) => {
+      this.stateTrack.arg2Text = ev.target.value;
+  };
+
+  render = () => {
+      return (
+          <div>
+            <div>
+              Arg 1: <input onChange={this.arg1Change} /> {this.state.arg1Status}
+            </div>
+            <div>
+              Arg 2: <input onChange={this.arg2Change}/> {this.state.arg2Status}
+            </div>
+            <div>
+              Result: { this.state.sumText }
+             </div>
+          </div>
+        );
+  }
+}
 ```
