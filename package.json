@@ -1,7 +1,7 @@
 {
   "name": "ng-set-state",
-  "version": "3.0.0",
-  "description": "Library that helps developing ui components in a more functional style where UI logic is representing as a series of immutable states.",
+  "version": "3.0.1",
+  "description": "A library that helps developing UI (e.g. Angular or React) components in a more functional style where UI logic is representing as a series of immutable state transitions.",
   "main": "dist/index.js",
   "es2015": "dist/index.es2015.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,9 @@
   },
   "keywords": [
     "set state",
-    "state"
+    "state",
+    "react",
+    "angular"
   ],
   "author": "Dmitry Tikhonov",
   "license": "MIT",
@@ -26,7 +28,7 @@
     "url": "https://github.com/0x1000000/ngSetState/issues"
   },
   "homepage": "https://github.com/0x1000000/ngSetState#readme",
-  "dependencies": {
+  "devDependencies": {
     "@types/jasmine": "^3.5.0",
     "core-js": "^3.27.2",
     "cpx": "^1.5.0",

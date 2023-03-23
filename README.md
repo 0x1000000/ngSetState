@@ -2,13 +2,12 @@
 
 ## About
 
-A library that helps developing angular components in a more functional style where UI logic is representing as a series of immutable state transitions.
+A library that helps developing UI (e.g. Angular or React) components in a more functional style where UI logic is representing as a series of immutable state transitions.
 
 * [Tutorial](https://itnext.io/angular-components-state-tracking-with-ng-set-state-e2b988540407?source=friends_link&sk=9a3596275dc73f72882fe2ec519b4528)
-* [Angular Components with Extracted Immutable State](https://medium.com/@0x1000000/angular-components-with-extracted-immutable-state-86ae1a4c9237?source=friends_link&sk=3d9422a57d8ac49a4b1c8de39d6fc0b3) - an article on Medium that explains the ideas of this library.
 * [React Demo (stackblitz.com)](https://stackblitz.com/edit/react-ts-yz6kuo?file=AppStateTrack.ts)
 * [Angular Demo (stackblitz.com)](https://stackblitz.com/edit/set-state-greet)
-* Demo Application - you can find a realistic usage of the library in this ASP.Net demo application - [SqGoods](https://github.com/0x1000000/SqGoods)
+* **Demo Application** - you can find a realistic usage of the library in this ASP.Net demo application - [SqGoods](https://github.com/0x1000000/SqGoods)
 
 ## Table of Contents
 
@@ -32,6 +31,7 @@ A library that helps developing angular components in a more functional style wh
    - [Shared Component](#examples)
    - [Async](#async)
    - [Actions](#actions)
+   - [Observables](#observables)
    - [Using in React](#using-in-react)
 
 <a name="get_satrted"/>
@@ -627,6 +627,58 @@ sharedComponent.stateHandler.execAction(new ActionA('arg3'));
 //Action A with arg "arg3"
 //Action B with arg "arg3"
 ```
+<a name="observables"/>
+
+### Observables
+
+```ts
+class Component {
+
+    sum: Subject<number>;
+
+    constructor(readonly arg1: Observable<number>,readonly  arg2: Observable<number>) {
+
+        this.sum = new Subject<number>();
+
+        initializeImmediateStateTracking<Component>(this);
+    }
+
+    destroy() {
+        releaseStateTracking(this);
+    }
+
+    @With<Component>('arg1', 'arg2')
+    static calcSum(s: ComponentState<Component>): StateDiff<Component> {
+        return {
+            sum: (s.arg1??0) +(s.arg2??0)
+        };
+    }
+}
+
+const arg1 = new BehaviorSubject<number>(0);
+const arg2 = new BehaviorSubject<number>(0);
+
+const component = new Component(arg1, arg2);
+
+let sum: number = 0;
+component.sum.subscribe( s=> sum = s);
+
+arg1.next(2);
+
+console.log(sum.toString());
+//2
+
+arg2.next(3);
+
+console.log(sum.toString())
+//5;
+
+arg2.next(10);
+
+console.log(sum.toString())
+//12;
+```
+
 <a name="using-in-react"/>
 
 ### Using in React

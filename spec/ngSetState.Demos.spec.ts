@@ -1,4 +1,5 @@
 import { } from "jasmine";
+import { BehaviorSubject, Observable, Subject } from "rxjs";
 import { 
     AsyncContext,
     AsyncInit,
@@ -283,5 +284,54 @@ describe('Demo', ()=> {
         sharedComponent.stateHandler.execAction(new ActionA('arg3'));
         popLog("Action B with arg \"arg3\"");
         popLog("Action A with arg \"arg3\"");
+    });
+
+    it('Observables', async () => {
+
+        class Component {
+
+            sum: Subject<number>;
+
+            constructor(readonly arg1: Observable<number>,readonly  arg2: Observable<number>) {
+
+                this.sum = new Subject<number>();
+
+                initializeImmediateStateTracking<Component>(this);
+            }
+
+            destroy() {
+                releaseStateTracking(this);
+            }
+
+            @With<Component>('arg1', 'arg2')
+            static calcSum(s: ComponentState<Component>): StateDiff<Component> {
+                return {
+                    sum: (s.arg1??0) +(s.arg2??0)
+                };
+            }
+        }
+
+        const arg1 = new BehaviorSubject<number>(0);
+        const arg2 = new BehaviorSubject<number>(0);
+
+        const component = new Component(arg1, arg2);
+
+        let sum: number = 0;
+        component.sum.subscribe( s=> sum = s);
+
+        arg1.next(2);
+        
+        log(sum.toString())
+        popLog("2");
+
+        arg2.next(3);
+        
+        log(sum.toString())
+        popLog("5");
+
+        arg2.next(10);
+        
+        log(sum.toString())
+        popLog("12");
     });
 });

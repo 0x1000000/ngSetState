@@ -1,3 +1,6 @@
+## 3.0.1
+* **BUG FIX**: dependencies to devDependencies in package.json
+
 ## 3.0.0
 * **BREAKING CHANGE** dependency on angular was removed as well as In, Out decorators. That approach does not work anymore in the modern versions of angular since they actively utilize own version of typescript to prepare components is design time instead of adding metadata in runtime (which is controversial).
 * support of observables and subjects
